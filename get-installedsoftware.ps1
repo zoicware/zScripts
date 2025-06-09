@@ -81,3 +81,41 @@ return $installedApps
 
 }
 
+
+#more apps
+#need to compare to other location 
+
+$regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData'
+
+$users = Get-ChildItem $regPath
+
+$installedApps = @()
+
+foreach($user in $users){
+$hives = Get-ChildItem "$($user.PSPath)\Products" 
+
+foreach($hive in $hives){
+try{
+
+$props = Get-ItemProperty "$($hive.PSPath)\InstallProperties" -ErrorAction Stop
+  $obj = [pscustomobject]@{
+        DisplayName = $props.DisplayName
+        InstallLocation = $props.InstallLocation
+        InstallSource = $props.InstallSource
+        UninstallString = $props.UninstallString
+        Publisher = $props.Publisher
+        SystemComponent = $props.SystemComponent
+  }
+
+  $installedApps += $obj
+
+}catch{}
+  
+
+}
+
+}
+
+$installedApps
+
+
