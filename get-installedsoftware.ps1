@@ -1,5 +1,6 @@
 function Get-InstalledSoftware {
-
+#gets installed apps from registry using the well known "uninstall" location (appwiz.cpl apps)
+#gets additional apps from lesser known location (dups are removed)
 param(
     [switch]$ThirdPartyOnly,
     [switch]$AllApps #show apps even if they are marked as a system component
@@ -111,8 +112,12 @@ return $installedApps
 
 
 
-function Get-UninstallString {
 
+
+
+
+function Get-UninstallString {
+#create uninstall obj with silent msi args or silent uninstall string if it exists
 param($app)
 
 $uninstallString = $app.UninstallString
@@ -150,6 +155,93 @@ $obj = [pscustomobject]@{
 
 }
 
+
+
+
+
+function Run-Uninstallers {
+#pass an array with uninstall string obj's from get-uninstallstring function
+param([array]$uninstallStrings)
+
+foreach($uninstallString in $uninstallStrings){
+
+    if($uninstallString.MsiExe){
+        $arguments = ($uninstallString.UninstallString -replace 'MsiExec.exe', '').Trim()
+       # Start-Process MsiExec.exe -ArgumentList $arguments -Wait #wait for now might be able to uninstall multiple at once
+    }else{
+
+             #split path and args when path is surrounded by " or '
+            $match = ([regex]'("[^"]+")(.*)').Matches($uninstallString.UninstallString)
+            if (!$match.count) {
+              #check for single quote if not "
+              $match = ([regex]"('[^']+')(.*)").Matches($uninstallString.UninstallString)
+            }
+            if ($match.count) {
+              $uninstallPath = ($match.captures.groups[1].value).Trim()
+              $uninstallArgs = ($match.captures.groups[2].value).Trim()
+            }else{
+
+            #some will not have any " or ' 
+            #some will be just a path with no args
+            #might be a cleaner way to do this but the uninstall string is unpredictable
+
+            #check if uninstall string is just a path
+            if(Test-Path $uninstallString.UninstallString -ErrorAction Ignore){
+                $uninstallPath = $uninstallString.UninstallString
+                $uninstallArgs = $null
+            }else{
+                #path has args could be - or /
+                #split the string on first arg char since splitting on the space could potentially split the path instead
+                if($uninstallString.UninstallString -like '*-*'){
+                    $uninstallPath, $uninstallArgs = $uninstallString.UninstallString -split '-' , 2
+                    #add the arg char back
+                    $uninstallArgs = "-$uninstallArgs"
+                }
+                elseif($uninstallString.UninstallString -like "*/*"){
+                     $uninstallPath, $uninstallArgs = $uninstallString.UninstallString -split '/' , 2
+                    #add the arg char back
+                    $uninstallArgs = "/$uninstallArgs"
+                }
+
+            }
+
+       }
+
+           
+
+            #test path incase uninstall exe has been removed but still exists in registry
+            $rawPath = $uninstallPath -replace '"', '' -replace "'" , ''
+            if(Test-Path $rawPath){
+            
+                if($uninstallArgs){
+                    #Start-Process $uninstallPath -ArgumentList $uninstallArgs -Wait
+                }else{
+                    #Start-Process $uninstallPath -Wait
+                }
+            
+            }
+            
+
+        }
+
+    }
+
+
+}
+
+
+
+
 #example
-Get-InstalledSoftware -ThirdPartyOnly
+
+$installApps = Get-InstalledSoftware -AllApps
+$uninstallStrings = @()
+foreach($app in $installApps){
+
+    $uninstallStrings += Get-UninstallString -app $app
+
+}
+
+
+Run-Uninstallers $uninstallStrings
 
