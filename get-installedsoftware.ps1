@@ -1,5 +1,3 @@
-
-
 function Get-InstalledSoftware {
 
 param(
@@ -61,35 +59,10 @@ $installedApps += $obj
 
 }
 
-
-
-
-
-if($ThirdPartyOnly){
-    $installedApps = $installedApps | Where-Object {$_.Publisher -ne 'Microsoft Corporation' -and $_.Publisher -ne $null}
-}
-
-if(!($AllApps)){
-  $installedApps = $installedApps | Where-Object {$_.SystemComponent -ne 1}
-}
-
-#filter out empty apps
-$installedApps = $installedApps | Where-Object {$_.DisplayName -ne $null}
-
-return $installedApps
-
-
-}
-
-
-#more apps
-#need to compare to other location 
-
+#another location
 $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData'
 
 $users = Get-ChildItem $regPath
-
-$installedApps = @()
 
 foreach($user in $users){
 $hives = Get-ChildItem "$($user.PSPath)\Products" 
@@ -116,6 +89,67 @@ $props = Get-ItemProperty "$($hive.PSPath)\InstallProperties" -ErrorAction Stop
 
 }
 
-$installedApps
 
+if($ThirdPartyOnly){
+    $installedApps = $installedApps | Where-Object {$_.Publisher -ne 'Microsoft Corporation' -and $_.Publisher -ne $null}
+}
+
+if(!($AllApps)){
+  $installedApps = $installedApps | Where-Object {$_.SystemComponent -ne 1}
+}
+
+#filter out empty apps
+$installedApps = $installedApps | Where-Object {$_.DisplayName -ne $null}
+
+#filter out duplicates
+$installedApps = $installedApps | Group-Object -Property UninstallString | ForEach-Object { $_.Group | Select-Object -First 1 }
+
+return $installedApps
+
+
+}
+
+
+
+function Get-UninstallString {
+
+param($app)
+
+$uninstallString = $app.UninstallString
+$uninstallStringQ = $app.QuietUninstallString
+
+$obj = [pscustomobject]@{
+                UninstallString = $null
+                MsiExe = $null
+                Silent = $null
+       }
+
+    if($uninstallString -like "MsiExec.exe*"){
+       $silentUninstall = ($uninstallString -replace '/I' , '/X') + " /qn"
+       $obj.UninstallString = $silentUninstall
+       $obj.MsiExe = $true
+       $obj.Silent = $true
+       return $obj
+    }else{
+
+        if($uninstallStringQ){
+        $obj.MsiExe = $false
+        $obj.Silent = $true
+        $obj.UninstallString = $uninstallStringQ
+        return $obj
+        }else{
+        $obj.MsiExe = $false
+        $obj.Silent = $false
+        $obj.UninstallString = $uninstallString
+        return $obj
+    }
+
+}
+
+
+
+}
+
+#example
+Get-InstalledSoftware -ThirdPartyOnly
 
