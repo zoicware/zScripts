@@ -163,6 +163,7 @@ function Run-Uninstallers {
 #pass an array with uninstall string obj's from get-uninstallstring function
 param([array]$uninstallStrings)
 
+
 foreach($uninstallString in $uninstallStrings){
 
     if($uninstallString.MsiExe){
@@ -232,16 +233,139 @@ foreach($uninstallString in $uninstallStrings){
 
 
 
-#example
+#-----------------------------------------------------------------------
 
-$installApps = Get-InstalledSoftware -AllApps
-$uninstallStrings = @()
-foreach($app in $installApps){
 
-    $uninstallStrings += Get-UninstallString -app $app
+# cleanup leftover files by searching common directories
+
+
+function Cleanup-InstallDirs {
+#pass app object from get-installedsoftware to check the Install location props
+  param(
+    $app,
+    [switch]$QuickClean
+ )
+
+#helper function to delete folders and files
+
+function Remove-ItemForce {
+    param($path)
+
+    $isDir = $fase
+    if(Test-Path $path -PathType Container){
+        $isDir = $true
+    }
+
+    try{
+       if($isDir){
+        Remove-Item $path -Force -Recurse -ErrorAction Stop
+       }else{
+        Remove-Item $path -Force -ErrorAction Stop
+       } 
+    }catch{
+        #need to takeown since admin priv failed
+        if($isDir){
+            takeown /f $path /r /d Y *>$null
+            icacls $path /grant administrators:F /t *>$null
+            Remove-Item $path -Force -Recurse -ErrorAction SilentlyContinue
+        }else{
+            takeown /f $path *>$null
+            icacls $path /grant administrators:F /t *>$null
+            Remove-Item $path -Force -ErrorAction SilentlyContinue
+        }
+        
+    }
+
+    if(Test-Path $path -ErrorAction Ignore){
+        Write-Host "Unable to Remove $path" -ForegroundColor Red
+    }else{
+        Write-Host "Removed $path Successfully" -ForegroundColor Green
+    }
+}
+
+    #dirs that could contain leftover temp files 
+    $installDirsCache = @(
+        "$env:USERPROFILE\Desktop",
+        "$env:USERPROFILE\Documents",
+        "$env:USERPROFILE\Downloads"
+        "$env:ProgramData\Microsoft\Windows\Start Menu\Programs",
+        "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
+         $env:TEMP,
+        "$env:SystemRoot\Temp",
+        "$env:SystemRoot\Prefetch"
+
+    )
+
+    #less specfic locations takes more time to search but less opportunity for missed files
+    $installDirsBroad = @(
+        $env:ProgramData,
+        $env:ProgramFiles,
+        ${env:ProgramFiles(x86)},
+        $env:APPDATA, #roaming
+        $env:LOCALAPPDATA   
+    )
+
+    $filter = "*" + ($app.DisplayName -split ' ')[0] + "*"
+        #if the filter is just microsoft it will be too vauge
+        if($filter -eq "*Microsoft*"){
+        #get the next two words after microsoft
+        $filter = "*" + ($app.DisplayName -split ' ',4)[1..2] + "*"
+        }
+
+    $foundDirs = @()
+       
+    if($QuickClean){
+        #only search temp file dirs
+       $foundDirs = ($installDirsCache | ForEach-Object {Get-ChildItem -Path $_ -Filter $filter -Recurse -ErrorAction SilentlyContinue}).FullName
+        
+    }else{
+       #full cleanup
+       #search temp dirs and install dirs
+       $foundDirs = ($installDirsCache | ForEach-Object {Get-ChildItem -Path $_ -Filter $filter -Recurse -ErrorAction SilentlyContinue}).FullName
+       $foundDirs += ($installDirsBroad | ForEach-Object {Get-ChildItem -Path $_ -Filter $filter -Recurse -ErrorAction SilentlyContinue}).FullName
+       #match additional folders
+       $folders = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\Folders' 
+       $members = $folders | Get-Member | Select-Object -Property Name
+       $validFolders = @()
+       foreach($member in $members){
+            if(Test-Path $member.Name){
+                $validFolders += $member.Name
+            }
+   
+        }
+
+        foreach($folder in $validFolders){
+            if($folder -like $filter){
+                $foundDirs += $folder
+            }
+        }
+    }
+
+
+    try{
+    if(Test-Path $app.InstallSource -ErrorAction Ignore){
+       # Remove-ItemForce $app.InstallSource 
+    }
+
+    if(Test-Path $app.InstallLocation -ErrorAction Ignore){
+      # Remove-ItemForce $app.InstallLocation 
+    }
+
+    }catch{}
+
+    
 
 }
 
 
-Run-Uninstallers $uninstallStrings
+
+#example
+$installApps = Get-InstalledSoftware -AllApps
+$uninstallStrings = @()
+
+foreach($app in $installApps){
+    Cleanup-InstallDirs -app $app 
+   # $uninstallStrings += Get-UninstallString -app $app
+   pause
+}
 
