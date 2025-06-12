@@ -236,18 +236,7 @@ foreach($uninstallString in $uninstallStrings){
 #-----------------------------------------------------------------------
 
 
-# cleanup leftover files by searching common directories
-
-
-function Cleanup-InstallDirs {
-#pass app object from get-installedsoftware to check the Install location props
-  param(
-    $app,
-    [switch]$QuickClean
- )
-
 #helper function to delete folders and files
-
 function Remove-ItemForce {
     param($path)
 
@@ -282,6 +271,19 @@ function Remove-ItemForce {
         Write-Host "Removed $path Successfully" -ForegroundColor Green
     }
 }
+
+
+
+# cleanup leftover files by searching common directories
+
+
+function Cleanup-InstallDirs {
+#pass app object from get-installedsoftware to check the Install location props
+  param(
+    $app,
+    [switch]$QuickClean
+ )
+
 
     #dirs that could contain leftover temp files 
     $installDirsCache = @(
@@ -359,13 +361,49 @@ function Remove-ItemForce {
 
 
 
+
+
+function Remove-RegLocation {
+#removes the hkcu and hklm \ software entry for the app as this could contain app settings
+    param($app)
+
+ $locations = @(
+        'HKCU:\Software',
+        'HKLM:\SOFTWARE'
+    )
+
+ $name = ($app.DisplayName -split ' ')[0]
+        #if the filter is just microsoft it will be too vauge
+        if($name -eq "Microsoft"){
+        #get the next two words after microsoft
+        $name = ($app.DisplayName -split ' ',4)[1..2] -join ''
+        $locations = @(
+        'HKCU:\Software\Microsoft',
+        'HKLM:\SOFTWARE\Microsoft'
+    )
+        }
+   
+   $foundPaths = ($locations | ForEach-Object { Get-ChildItem $_ } | Where-Object {$_.Name -like "*$name" }).PSPath
+
+    foreach($path in $foundPaths){
+       # Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+}
+
+
+
+
+
 #example
 $installApps = Get-InstalledSoftware -AllApps
 $uninstallStrings = @()
 
 foreach($app in $installApps){
-    Cleanup-InstallDirs -app $app 
+    Remove-RegLocation -app $app 
    # $uninstallStrings += Get-UninstallString -app $app
    pause
 }
+
+
 
