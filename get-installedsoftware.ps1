@@ -241,32 +241,47 @@ function Remove-ItemForce {
     param($path)
 
     $isDir = $fase
-    if(Test-Path $path -PathType Container){
+    if(Test-Path "$path" -PathType Container){
         $isDir = $true
     }
 
     try{
        if($isDir){
-        Remove-Item $path -Force -Recurse -ErrorAction Stop
+        Remove-Item "$path" -Force -Recurse -ErrorAction Stop
        }else{
-        Remove-Item $path -Force -ErrorAction Stop
+        Remove-Item "$path" -Force -ErrorAction Stop
        } 
     }catch{
         #need to takeown since admin priv failed
         if($isDir){
-            takeown /f $path /r /d Y *>$null
-            icacls $path /grant administrators:F /t *>$null
-            Remove-Item $path -Force -Recurse -ErrorAction SilentlyContinue
+            takeown /f "$path" /r /d Y *>$null
+            icacls "$path" /grant administrators:F /t *>$null
+            Remove-Item "$path" -Force -Recurse -ErrorAction SilentlyContinue
         }else{
-            takeown /f $path *>$null
-            icacls $path /grant administrators:F /t *>$null
-            Remove-Item $path -Force -ErrorAction SilentlyContinue
+            takeown /f "$path" *>$null
+            icacls "$path" /grant administrators:F /t *>$null
+            Remove-Item "$path" -Force -ErrorAction SilentlyContinue
         }
         
     }
 
-    if(Test-Path $path -ErrorAction Ignore){
+    if(Test-Path "$path" -ErrorAction Ignore){
         Write-Host "Unable to Remove $path" -ForegroundColor Red
+        #create task to run on next restart to attempt to cleanup file(s)
+
+        $regLocation = "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+        $script = "$env:TEMP\fileRemoval.ps1"
+        $removalCode = "Remove-Item `"$path`" -Force -Recurse"
+  
+        if(!(Test-Path $script)){
+        New-Item $script -Force | Out-Null
+        }
+        
+    
+        Add-Content $script -Value $removalCode -Force 
+        $arguments = "-ep 4 -win 1 -c `"&$script; remove-item $script`""
+        Set-ItemProperty $regLocation -Name "NextRun" -Value "Powershell.exe $arguments" -Force
+
     }else{
         Write-Host "Removed $path Successfully" -ForegroundColor Green
     }
