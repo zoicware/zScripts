@@ -309,7 +309,9 @@ function Cleanup-InstallDirs {
         "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
          $env:TEMP,
         "$env:SystemRoot\Temp",
-        "$env:SystemRoot\Prefetch"
+        "$env:SystemRoot\Prefetch",
+        [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonDesktopDirectory),
+        [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonDocuments)
 
     )
 
