@@ -409,6 +409,128 @@ function Remove-RegLocation {
 }
 
 
+function Get-AppIcon {
+    param (
+        $app
+    )
+
+    #extracts icon from exe file if no icon use the default exe icon
+    #type def from: https://gist.github.com/ThioJoe/1333742dd851a04a955a3f9e9bc1fbe5
+    Add-Type -TypeDefinition @'
+    using System;
+    using System.Runtime.InteropServices;
+    using System.Text;
+    public class Shell32 {
+        [DllImport("Shell32.dll", CharSet = CharSet.Unicode)]
+        public static extern IntPtr ExtractAssociatedIconExW(IntPtr hInst, StringBuilder lpIconPath, ref ushort piIconIndex, ref ushort piIconId);
+    }
+'@ 
+
+    $iconPath = "$env:windir\system32\shell32.dll"
+    $iconIndex = 2
+    $iconId = 0
+    $handle = [Shell32]::ExtractAssociatedIconExW([IntPtr]::Zero, $iconPath, [ref]$iconIndex, [ref]$iconId)
+    $defaultAppIcon = [System.Drawing.Icon]::FromHandle($handle)
+
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    [System.Windows.Forms.Application]::EnableVisualStyles()
+
+    # Create the form
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'ListView with Icons'
+    $form.Size = New-Object System.Drawing.Size(400, 300)
+    $form.StartPosition = 'CenterScreen'
+
+    # Create the ImageList
+    $imageList = New-Object System.Windows.Forms.ImageList
+    $imageList.ImageSize = New-Object System.Drawing.Size(32, 32)
+    $imageList.ColorDepth = 'Depth32Bit'
+
+    #get icon from exe or msi file fallback to default app icon 
+    #
+    # TODO: should be able to clean this up so we only have to fallback once or at most in two places 
+    # TODO: possibly use shell apps folder with a lnk file to get the missing app icons
+    #  $shell = New-Object -ComObject Shell.Application
+    #  $folder = $shell.Namespace('shell:AppsFolder') 
+    #============================================================================================================    
+    if ($app.DisplayIcon -eq 'msiexec.exe') {
+        $imageKey = $app.DisplayIcon
+        $imageList.Images.Add($imageKey, $defaultAppIcon)
+    }
+    elseif ($app.DisplayIcon -eq $null) {
+        try {
+            #search install location if display icon is empty
+            if (Test-Path $app.InstallSource -ErrorAction Stop) {
+                $path = (Get-ChildItem $app.InstallSource -Recurse -Include '*.exe', '*.msi').FullName
+                if ($path) {
+                    $imageKey = $path
+                    $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+                    $imageList.Images.Add($path, $icon)
+                }
+                else {
+                    throw #go to catch
+                }
+            }
+            elseif (Test-Path $app.InstallLocation -ErrorAction Stop) {
+                $path = (Get-ChildItem $app.InstallLocation -Recurse -Include '*.exe', '*.msi').FullName
+                if ($path) {
+                    $imageKey = $path
+                    $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+                    $imageList.Images.Add($path, $icon)
+                }
+                else {
+                    throw #go to catch
+                }
+            }
+        }
+        catch {
+            #fallback to default icon
+            $imageKey = 'msiexec.exe' 
+            $imageList.Images.Add($imageKey, $defaultAppIcon)
+        }
+        
+    }
+    else {
+        $fileCleaned = ($app.DisplayIcon -replace '"', '') -replace ',.*$', ''
+        $imageKey = $fileCleaned
+        try {
+            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($fileCleaned)
+            $imageList.Images.Add($fileCleaned, $icon)
+        }
+        catch {
+            #fallback to default icon
+            $imageKey = 'msiexec.exe' 
+            $imageList.Images.Add($imageKey, $defaultAppIcon)
+        }
+            
+    }
+    #============================================================================================================   
+        
+
+
+    # Create the ListView
+    $listView = New-Object System.Windows.Forms.ListView
+    $listView.View = 'SmallIcon'
+    $listView.Dock = 'Fill'
+    $listView.SmallImageList = $imageList
+    
+
+    $item = New-Object System.Windows.Forms.ListViewItem
+    $item.Text = $app.DisplayName
+    $item.ImageKey = $imageKey
+    $listView.Items.Add($item)
+    
+
+    $form.Controls.Add($listView)
+    $form.Topmost = $true
+    $form.Add_Shown({ $form.Activate() })
+    [void]$form.ShowDialog()
+
+    
+}
+
+
 
 
 
