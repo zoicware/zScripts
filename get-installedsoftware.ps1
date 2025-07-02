@@ -447,64 +447,100 @@ function Get-AppIcon {
     $imageList.ImageSize = New-Object System.Drawing.Size(32, 32)
     $imageList.ColorDepth = 'Depth32Bit'
 
-    #get icon from exe or msi file fallback to default app icon 
+   #get icon from exe or msi file fallback to default app icon 
     #
     # TODO: should be able to clean this up so we only have to fallback once or at most in two places 
-    # TODO: possibly use shell apps folder with a lnk file to get the missing app icons
-    #  $shell = New-Object -ComObject Shell.Application
-    #  $folder = $shell.Namespace('shell:AppsFolder') 
-    #============================================================================================================    
-    if ($app.DisplayIcon -eq 'msiexec.exe') {
-        $imageKey = $app.DisplayIcon
-        $imageList.Images.Add($imageKey, $defaultAppIcon)
+    #============================================================================================================ 
+    function Get-IconNoPath {
+        $startMenuPaths = @(
+            "$env:ProgramData\Microsoft\Windows\Start Menu\Programs",
+            "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+        )
+
+        $searchterm1 = (($app.DisplayName -replace '\d+', '' -replace '\.', '') -split ' ')[0].trim() -join ' '
+        if ($searchterm1 -eq 'Microsoft') {
+            $searchterm1 = (($app.DisplayName -replace '\d+', '' -replace '\.', '') -split ' ')[1..2].trim() -join ' '
+        }
+        $searchterm2 = (($app.DisplayName -replace '\d+', '' -replace '\.', '') -split ' ', 3)[1..2].trim() -join ' '
+        $lnks = @()
+        foreach ($path in $startMenuPaths) {
+            $lnks += Get-ChildItem $path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm1*" } 
+            $lnks += Get-ChildItem $path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm2*" } 
+        }
+       
+        if ($lnks) {
+            $path = ($lnks | Select-Object -First 1).FullName
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($path)
+            $targetPath = $shortcut.TargetPath
+            $Global:imageKey = $targetPath
+            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($targetPath) 
+            $imageList.Images.Add($imageKey, $icon)
+        }
+        else {
+            try {
+                #search install location if display icon is empty
+                if (Test-Path $app.InstallSource -ErrorAction Stop) {
+                    $path = (Get-ChildItem $app.InstallSource -Recurse -Include '*.exe', '*.msi').FullName
+                    if ($path) {
+                        $Global:imageKey = $path
+                        $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path) 
+                        $imageList.Images.Add($path, $icon)
+                    }
+                    else {
+                        throw #go to catch
+                    }
+                }
+                elseif (Test-Path $app.InstallLocation -ErrorAction Stop) {
+                    $path = (Get-ChildItem $app.InstallLocation -Recurse -Include '*.exe', '*.msi').FullName
+                    if ($path) {
+                        $Global:imageKey = $path
+                        $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+                        $imageList.Images.Add($path, $icon)
+                    }
+                    else {
+                        throw #go to catch
+                    }
+                }
+            }
+            catch {
+                #fallback to default icon
+                $Global:imageKey = 'msiexec.exe' 
+                $imageList.Images.Add($imageKey, $defaultAppIcon)
+            }
+        }
+    
     }
-    elseif ($app.DisplayIcon -eq $null) {
-        try {
-            #search install location if display icon is empty
-            if (Test-Path $app.InstallSource -ErrorAction Stop) {
-                $path = (Get-ChildItem $app.InstallSource -Recurse -Include '*.exe', '*.msi').FullName
-                if ($path) {
-                    $imageKey = $path
-                    $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
-                    $imageList.Images.Add($path, $icon)
-                }
-                else {
-                    throw #go to catch
-                }
-            }
-            elseif (Test-Path $app.InstallLocation -ErrorAction Stop) {
-                $path = (Get-ChildItem $app.InstallLocation -Recurse -Include '*.exe', '*.msi').FullName
-                if ($path) {
-                    $imageKey = $path
-                    $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
-                    $imageList.Images.Add($path, $icon)
-                }
-                else {
-                    throw #go to catch
-                }
-            }
-        }
-        catch {
-            #fallback to default icon
-            $imageKey = 'msiexec.exe' 
-            $imageList.Images.Add($imageKey, $defaultAppIcon)
-        }
-        
+
+    if ($null -eq $app.DisplayIcon -or $app.DisplayIcon -eq 'msiexec.exe') {
+        Get-IconNoPath
     }
     else {
+       
         $fileCleaned = ($app.DisplayIcon -replace '"', '') -replace ',.*$', ''
-        $imageKey = $fileCleaned
-        try {
-            $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($fileCleaned)
-            $imageList.Images.Add($fileCleaned, $icon)
+        if (Test-Path $fileCleaned -ErrorAction Ignore) {
+            $imageKey = $fileCleaned
+            try {
+                $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($fileCleaned)
+                $imageList.Images.Add($fileCleaned, $icon)
+            }
+            catch {
+                #fallback to default icon
+                $imageKey = 'msiexec.exe' 
+                $imageList.Images.Add($imageKey, $defaultAppIcon)
+            }
         }
-        catch {
-            #fallback to default icon
-            $imageKey = 'msiexec.exe' 
-            $imageList.Images.Add($imageKey, $defaultAppIcon)
+        else {
+            Get-IconNoPath
         }
-            
+           
+        
+   
     }
+   
+    
+   
+   
     #============================================================================================================   
         
 
