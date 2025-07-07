@@ -414,6 +414,10 @@ function Get-AppIcon {
         $app
     )
 
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    [System.Windows.Forms.Application]::EnableVisualStyles()
+
     #extracts icon from exe file if no icon use the default exe icon
     #type def from: https://gist.github.com/ThioJoe/1333742dd851a04a955a3f9e9bc1fbe5
     Add-Type -TypeDefinition @'
@@ -432,9 +436,6 @@ function Get-AppIcon {
     $handle = [Shell32]::ExtractAssociatedIconExW([IntPtr]::Zero, $iconPath, [ref]$iconIndex, [ref]$iconId)
     $defaultAppIcon = [System.Drawing.Icon]::FromHandle($handle)
 
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-    [System.Windows.Forms.Application]::EnableVisualStyles()
 
     # Create the form
     $form = New-Object System.Windows.Forms.Form
@@ -447,7 +448,7 @@ function Get-AppIcon {
     $imageList.ImageSize = New-Object System.Drawing.Size(32, 32)
     $imageList.ColorDepth = 'Depth32Bit'
 
-   #get icon from exe or msi file fallback to default app icon 
+    #get icon from exe or msi file fallback to default app icon 
     #
     # TODO: should be able to clean this up so we only have to fallback once or at most in two places 
     #============================================================================================================ 
@@ -456,17 +457,50 @@ function Get-AppIcon {
             "$env:ProgramData\Microsoft\Windows\Start Menu\Programs",
             "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
         )
-
-        $searchterm1 = (($app.DisplayName -replace '\d+', '' -replace '\.', '') -split ' ')[0].trim() -join ' '
-        if ($searchterm1 -eq 'Microsoft') {
-            $searchterm1 = (($app.DisplayName -replace '\d+', '' -replace '\.', '') -split ' ')[1..2].trim() -join ' '
-        }
-        $searchterm2 = (($app.DisplayName -replace '\d+', '' -replace '\.', '') -split ' ', 3)[1..2].trim() -join ' '
         $lnks = @()
+        $dirs = @()
+
+        #first pass search for folder using publisher or displayname
+        $searchtermDir1 = $app.Publisher -replace '[^a-zA-Z\s]', '' -replace '\s+', ' '
+        Write-Host $searchtermDir1
         foreach ($path in $startMenuPaths) {
-            $lnks += Get-ChildItem $path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm1*" } 
-            $lnks += Get-ChildItem $path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm2*" } 
+            $dirs += Get-ChildItem $path -Recurse -Directory | Where-Object { $_.Name -like "*$searchtermdir1*" } 
         }
+        #dir not found try using the display name
+        if ($dirs.count -eq 0) {
+            #search for dir again but try display name
+            $searchtermDir2 = (($app.DisplayName -replace '[^a-zA-Z\s]', '') -split ' ')[0].trim() -join ' '
+            $searchtermDir3 = (($app.DisplayName -replace '[^a-zA-Z\s]', '') -split ' ')[0..1].trim() -join ' '
+            foreach ($path in $startMenuPaths) {
+                $dirs += Get-ChildItem $path -Recurse -Directory | Where-Object { $_.Name -like "*$searchtermdir2*" } 
+                $dirs += Get-ChildItem $path -Recurse -Directory | Where-Object { $_.Name -like "*$searchtermdir3*" } 
+            }
+        }
+
+        if ($dirs.count -gt 0) {
+            $searchterm1 = (($app.DisplayName -replace '[^a-zA-Z\s]', '' -replace '\s+', ' ') -split ' ')[0..3].trim()
+            Write-Host $searchterm1
+            foreach ($dir in $dirs) {
+                $lnks += Get-ChildItem $dir.FullName -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm1*" } 
+            }
+        }
+
+        #$searchterm1 = (($app.DisplayName -replace '\d+', '' -replace '\.', '')).Trim()
+        
+        
+        foreach ($path in $startMenuPaths) {
+            
+        }
+
+        if ($lnks.count -eq 0) {
+            #second pass try to remove uncessary words from the display name
+            $searchterm2 = (($app.DisplayName -replace '[^a-zA-Z\s]', '') -split ' ')[1..3].trim() -join ' '
+            Write-host $searchterm2
+            foreach ($path in $startMenuPaths) {
+                $lnks += Get-ChildItem $path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm2*" } 
+            }
+        }
+
        
         if ($lnks) {
             $path = ($lnks | Select-Object -First 1).FullName
@@ -563,6 +597,8 @@ function Get-AppIcon {
     $form.Add_Shown({ $form.Activate() })
     [void]$form.ShowDialog()
 
+
+    # Remove-Item $appsLNK -Force -Recurse
     
 }
 
