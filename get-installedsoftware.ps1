@@ -450,7 +450,8 @@ function Get-AppIcon {
 
     #get icon from exe or msi file fallback to default app icon 
     #
-    # TODO: should be able to clean this up so we only have to fallback once or at most in two places 
+    # TODO: if dir is found just use whatever lnk is in there instead of trying to search for it inside of the dir
+    # 
     #============================================================================================================ 
     function Get-IconNoPath {
         $startMenuPaths = @(
@@ -462,7 +463,7 @@ function Get-AppIcon {
 
         #first pass search for folder using publisher or displayname
         $searchtermDir1 = $app.Publisher -replace '[^a-zA-Z\s]', '' -replace '\s+', ' '
-        Write-Host $searchtermDir1
+        Write-Host "First pass publisher: $searchtermDir1"
         foreach ($path in $startMenuPaths) {
             $dirs += Get-ChildItem $path -Recurse -Directory | Where-Object { $_.Name -like "*$searchtermdir1*" } 
         }
@@ -470,37 +471,46 @@ function Get-AppIcon {
         if ($dirs.count -eq 0) {
             #search for dir again but try display name
             $searchtermDir2 = (($app.DisplayName -replace '[^a-zA-Z\s]', '') -split ' ')[0].trim() -join ' '
-            $searchtermDir3 = (($app.DisplayName -replace '[^a-zA-Z\s]', '') -split ' ')[0..1].trim() -join ' '
+            Write-Host "Second Pass Display name: $searchtermdir2"
             foreach ($path in $startMenuPaths) {
                 $dirs += Get-ChildItem $path -Recurse -Directory | Where-Object { $_.Name -like "*$searchtermdir2*" } 
-                $dirs += Get-ChildItem $path -Recurse -Directory | Where-Object { $_.Name -like "*$searchtermdir3*" } 
             }
         }
 
         if ($dirs.count -gt 0) {
-            $searchterm1 = (($app.DisplayName -replace '[^a-zA-Z\s]', '' -replace '\s+', ' ') -split ' ')[0..3].trim()
-            Write-Host $searchterm1
+            #search in found dirs first but they could be false positives so if nothing is found search the whole dir
+            $searchterm1 = (($app.DisplayName -replace '[^a-zA-Z\s]', '' -replace '\s+', ' ') -split ' ')[0..2].trim()
+            Write-Host "dir found searching: $searchterm1"
             foreach ($dir in $dirs) {
                 $lnks += Get-ChildItem $dir.FullName -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm1*" } 
             }
-        }
-
-        #$searchterm1 = (($app.DisplayName -replace '\d+', '' -replace '\.', '')).Trim()
-        
-        
-        foreach ($path in $startMenuPaths) {
             
+            if ($lnks.count -eq 0) {
+                foreach ($path in $startMenuPaths) {
+                    $lnks += Get-ChildItem $Path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm1*" } 
+                }
+            }
+        }
+        else {
+            #dir not found just search the whole start menu dir 
+            $searchterm1 = (($app.DisplayName -replace '[^a-zA-Z\s]', '' -replace '\s+', ' ') -split ' ')[0..2].trim()
+            Write-Host "dir not found: $searchterm1"
+            foreach ($path in $startMenuPaths) {
+                $lnks += Get-ChildItem $path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm1*" } 
+            }
         }
 
+        #maybe dont bother with a second pass when nothing is found 
+        <#
         if ($lnks.count -eq 0) {
             #second pass try to remove uncessary words from the display name
             $searchterm2 = (($app.DisplayName -replace '[^a-zA-Z\s]', '') -split ' ')[1..3].trim() -join ' '
-            Write-host $searchterm2
+            Write-host "no lnks found: $searchterm2"
             foreach ($path in $startMenuPaths) {
                 $lnks += Get-ChildItem $path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm2*" } 
             }
         }
-
+        #>
        
         if ($lnks) {
             $path = ($lnks | Select-Object -First 1).FullName
@@ -565,6 +575,7 @@ function Get-AppIcon {
             }
         }
         else {
+            #display icon path doesnt exist
             Get-IconNoPath
         }
            
@@ -575,7 +586,7 @@ function Get-AppIcon {
     
    
    
-    #============================================================================================================   
+    #============================================================================================================     
         
 
 
