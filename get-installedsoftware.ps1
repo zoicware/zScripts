@@ -450,7 +450,7 @@ function Get-AppIcon {
 
     #get icon from exe or msi file fallback to default app icon 
     #
-    # TODO: if dir is found just use whatever lnk is in there instead of trying to search for it inside of the dir
+    # this alg is somewhat messy but as far as i know there is no better way to get the app icon when its not included in the uninstall properties
     # 
     #============================================================================================================ 
     function Get-IconNoPath {
@@ -482,7 +482,7 @@ function Get-AppIcon {
             $searchterm1 = (($app.DisplayName -replace '[^a-zA-Z\s]', '' -replace '\s+', ' ') -split ' ')[0..2].trim()
             Write-Host "dir found searching: $searchterm1"
             foreach ($dir in $dirs) {
-                $lnks += Get-ChildItem $dir.FullName -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm1*" } 
+                $lnks += Get-ChildItem $dir.FullName -Recurse -File -Include '*.lnk' #| Where-Object { $_.Name -like "*$searchterm1*" } 
             }
             
             if ($lnks.count -eq 0) {
@@ -500,18 +500,6 @@ function Get-AppIcon {
             }
         }
 
-        #maybe dont bother with a second pass when nothing is found 
-        <#
-        if ($lnks.count -eq 0) {
-            #second pass try to remove uncessary words from the display name
-            $searchterm2 = (($app.DisplayName -replace '[^a-zA-Z\s]', '') -split ' ')[1..3].trim() -join ' '
-            Write-host "no lnks found: $searchterm2"
-            foreach ($path in $startMenuPaths) {
-                $lnks += Get-ChildItem $path -Recurse -File -Include '*.lnk' | Where-Object { $_.Name -like "*$searchterm2*" } 
-            }
-        }
-        #>
-       
         if ($lnks) {
             $path = ($lnks | Select-Object -First 1).FullName
             $shell = New-Object -ComObject WScript.Shell
@@ -586,7 +574,7 @@ function Get-AppIcon {
     
    
    
-    #============================================================================================================     
+    #============================================================================================================   
         
 
 
