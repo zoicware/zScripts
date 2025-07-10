@@ -451,7 +451,7 @@ function Get-AppIcon {
     #get icon from exe or msi file fallback to default app icon 
     #
     # this alg is somewhat messy but as far as i know there is no better way to get the app icon when its not included in the uninstall properties
-    # 
+    # TODO: prob need to dispose or [gc]::collect() the shortcut/shell object 
     #============================================================================================================ 
     function Get-IconNoPath {
         $startMenuPaths = @(
