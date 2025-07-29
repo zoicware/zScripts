@@ -127,8 +127,32 @@ else {
     $Global:psversion = 5
 }
 
+if ($EnableLogging) {
+    $date = (Get-Date).ToString('MM-dd-yyyy-HH:mm') -replace ':'
+    $logPath = "$env:USERPROFILE\RemoveWindowsAI$date.log"
+    New-Item $logPath | Out-Null
+    Write-Status -msg "Starting Log at [$logPath]"
+    #start and stop the transcript to get the header
+    Start-Transcript -Path $logPath -IncludeInvocationHeader | Out-Null
+    Stop-Transcript | Out-Null
+}
 
 #=====================================================================================
+
+function Add-LogInfo {
+    param(
+        [string]$logPath,
+        $info
+    )
+
+    $content = @"
+    ====================================
+    Line: $($info.Line)
+    Result: $($info.Result)
+"@
+
+Add-Content $logPath -Value $content | Out-Null
+}
 
 function Disable-Registry-Keys {
     #maybe add params for particular parts
