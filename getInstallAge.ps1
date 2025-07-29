@@ -1,0 +1,2 @@
+$utcdate = Get-ItemPropertyValue -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name 'InstallDate'
+$installDate = (Get-Date '1970-01-01 00:00:00').AddSeconds($utcdate).ToString('dddd, MMMM dd, yyyy')
