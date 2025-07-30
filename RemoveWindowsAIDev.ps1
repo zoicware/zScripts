@@ -1206,3 +1206,14 @@ if ($ogExecutionPolicy) {
 $input = Read-Host 'Done! Press Any Key to Exit'
 if ($input) { exit }
 
+
+#REMOVE AI REGISTRY URI HANDLES
+$uris = @(
+    'registry::HKEY_CLASSES_ROOT\ms-office-ai'
+    'registry::HKEY_CLASSES_ROOT\ms-copilot'
+    'registry::HKEY_CLASSES_ROOT\ms-clicktodo'
+)
+
+foreach($uri in $uris){
+    Remove-Item $uri -Recurse -Force
+}
