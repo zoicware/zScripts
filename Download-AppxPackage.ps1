@@ -269,21 +269,21 @@ $btnDownload.Add_Click({
                         Write-Error 'Missing either PackageFamilyName or ProductId.'
                         return $null
                     }
-                  
+      
                     try {
                         $UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome # needed as sometimes the API will block things when it knows requests are coming from PowerShell
                     }
                     catch {
-                        #ignore error
+                        $UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
                     }
-                  
+      
                     $DownloadedFiles = @()
                     $errored = $false
                     $allFilesDownloaded = $true
-                  
+      
                     $apiUrl = 'https://store.rg-adguard.net/api/GetFiles'
                     $versionRing = 'Retail'
-                  
+      
                     $architecture = switch ($env:PROCESSOR_ARCHITECTURE) {
                         'x86' { 'x86' }
                         { @('x64', 'amd64') -contains $_ } { 'x64' }
@@ -291,35 +291,45 @@ $btnDownload.Add_Click({
                         'arm64' { 'arm64' }
                         default { 'neutral' } # should never get here
                     }
-                  
+      
                     if (Test-Path $outputDir -PathType Container) {
                         New-Item -Path "$outputDir\$PackageFamilyName" -ItemType Directory -Force | Out-Null
                         $downloadFolder = "$outputDir\$PackageFamilyName"
                     }
                     else {
-                        $downloadFolder = Join-Path $env:TEMP $PackageFamilyName
+        
+                        $downloadFolder = Join-Path $tempDir $PackageFamilyName
                         if (!(Test-Path $downloadFolder -PathType Container)) {
                             New-Item $downloadFolder -ItemType Directory -Force | Out-Null
                         }
                     }
-                    
+        
                     $body = @{
                         type = if ($ProductId) { 'ProductId' } else { 'PackageFamilyName' }
                         url  = if ($ProductId) { $ProductId } else { $PackageFamilyName }
                         ring = $versionRing
                         lang = 'en-US'
                     }
-                  
+
+                    $headers = @{
+                        'User-Agent'       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                        'Accept'           = 'application/json, text/javascript, */*; q=0.01'
+                        'Content-Type'     = 'application/x-www-form-urlencoded; charset=UTF-8'
+                        'X-Requested-With' = 'XMLHttpRequest'
+                        'Origin'           = 'https://store.rg-adguard.net'
+                        'Referer'          = 'https://store.rg-adguard.net/'
+                    }
+      
                     # required due to the api being protected behind Cloudflare now
                     if (-Not $apiWebSession) {
                         $global:apiWebSession = $null
                         $apiHostname = (($apiUrl.split('/'))[0..2]) -Join '/'
-                        Invoke-WebRequest -Uri $apiHostname -UserAgent $UserAgent -SessionVariable $apiWebSession -UseBasicParsing
+                        Invoke-WebRequest -Uri $apiHostname -UserAgent $UserAgent -SessionVariable $apiWebSession -UseBasicParsing 
                     }
-                  
+      
                     $raw = $null
                     try {
-                        $raw = Invoke-RestMethod -Method Post -Uri $apiUrl -ContentType 'application/x-www-form-urlencoded' -Body $body -UserAgent $UserAgent -WebSession $apiWebSession
+                        $raw = Invoke-RestMethod -Method Post -Uri $apiUrl -Headers $headers -Body $body -WebSession $apiWebSession
                     }
                     catch {
                         $errorMsg = 'An error occurred: ' + $_
@@ -327,7 +337,7 @@ $btnDownload.Add_Click({
                         $errored = $true
                         return $false
                     }
-                  
+      
                     # hashtable of packages by $name
                     #  > values = hashtables of packages by $version
                     #    > values = arrays of packages as objects (containing: url, filename, name, version, arch, publisherId, type)
@@ -344,7 +354,7 @@ $btnDownload.Add_Click({
                         $publisherId = ($textSplitUnderscore.split('_')[4]).split('.')[0]
                         $textSplitPeriod = $text.split('.')
                         $type = ($textSplitPeriod[$textSplitPeriod.length - 1]).ToLower()
-                  
+      
                         # create $name hash key hashtable, if it doesn't already exist
                         if (!($packageList.keys -match ('^' + [Regex]::escape($name) + '$'))) {
                             $packageList["$name"] = @{}
@@ -353,7 +363,7 @@ $btnDownload.Add_Click({
                         if (!(($packageList["$name"]).keys -match ('^' + [Regex]::escape($version) + '$'))) {
                             ($packageList["$name"])["$version"] = @()
                         }
-                   
+       
                         # add package to the array in the hashtable
                         ($packageList["$name"])["$version"] += @{
                             url         = $url
@@ -365,7 +375,7 @@ $btnDownload.Add_Click({
                             type        = $type
                         }
                     }
-                  
+      
                     # an array of packages as objects, meant to only contain one of each $name
                     $latestPackages = @()
                     # grabs the most updated package for $name and puts it into $latestPackages
@@ -380,15 +390,15 @@ $btnDownload.Add_Click({
                         elseif ($msix) { $latestPackages += $msix }
                         elseif ($appx) { $latestPackages += $appx }
                     }
-                  
+      
                     # download packages
                     $latestPackages | ForEach-Object {
                         $url = $_.url
                         $filename = $_.filename
                         # TODO: may need to include detection in the future of expired package download URLs..... in the case that downloads take over 10 minutes to complete
-                  
+      
                         $downloadFile = Join-Path $downloadFolder $filename
-                  
+      
                         # If file already exists, ask to replace it
                         if (Test-Path $downloadFile) {
                             Write-Host "`"${filename}`" already exists at `"${downloadFile}`"."
@@ -404,9 +414,9 @@ $btnDownload.Add_Click({
                                 $DownloadedFiles += $downloadFile
                             }
                         }
-                  
+      
                         if (!(Test-Path $downloadFile)) {
-                            Write-Host "Attempting download of `"${filename}`" to `"${downloadFile}`" . . ."
+                            # Write-Host "Attempting download of `"${filename}`" to `"${downloadFile}`" . . ."
                             $fileDownloaded = $null
                             $PreviousProgressPreference = $ProgressPreference
                             $ProgressPreference = 'SilentlyContinue' # avoids slow download when using Invoke-WebRequest
@@ -426,7 +436,7 @@ $btnDownload.Add_Click({
                             else { $allFilesDownloaded = $false }
                         }
                     }
-                  
+      
                     if ($errored) { Write-Host 'Completed with some errors.' }
                     if (-Not $allFilesDownloaded) { Write-Host 'Warning: Not all packages could be downloaded.' }
                     return $DownloadedFiles
@@ -493,21 +503,21 @@ $btnDownloadInstall.Add_Click({
                         Write-Error 'Missing either PackageFamilyName or ProductId.'
                         return $null
                     }
-                  
+      
                     try {
                         $UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::Chrome # needed as sometimes the API will block things when it knows requests are coming from PowerShell
                     }
                     catch {
-                        #ignore error
+                        $UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
                     }
-                  
+      
                     $DownloadedFiles = @()
                     $errored = $false
                     $allFilesDownloaded = $true
-                  
+      
                     $apiUrl = 'https://store.rg-adguard.net/api/GetFiles'
                     $versionRing = 'Retail'
-                  
+      
                     $architecture = switch ($env:PROCESSOR_ARCHITECTURE) {
                         'x86' { 'x86' }
                         { @('x64', 'amd64') -contains $_ } { 'x64' }
@@ -515,35 +525,45 @@ $btnDownloadInstall.Add_Click({
                         'arm64' { 'arm64' }
                         default { 'neutral' } # should never get here
                     }
-                  
+      
                     if (Test-Path $outputDir -PathType Container) {
                         New-Item -Path "$outputDir\$PackageFamilyName" -ItemType Directory -Force | Out-Null
                         $downloadFolder = "$outputDir\$PackageFamilyName"
                     }
                     else {
-                        $downloadFolder = Join-Path $env:TEMP $PackageFamilyName
+        
+                        $downloadFolder = Join-Path $tempDir $PackageFamilyName
                         if (!(Test-Path $downloadFolder -PathType Container)) {
                             New-Item $downloadFolder -ItemType Directory -Force | Out-Null
                         }
                     }
-                    
+        
                     $body = @{
                         type = if ($ProductId) { 'ProductId' } else { 'PackageFamilyName' }
                         url  = if ($ProductId) { $ProductId } else { $PackageFamilyName }
                         ring = $versionRing
                         lang = 'en-US'
                     }
-                  
+
+                    $headers = @{
+                        'User-Agent'       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                        'Accept'           = 'application/json, text/javascript, */*; q=0.01'
+                        'Content-Type'     = 'application/x-www-form-urlencoded; charset=UTF-8'
+                        'X-Requested-With' = 'XMLHttpRequest'
+                        'Origin'           = 'https://store.rg-adguard.net'
+                        'Referer'          = 'https://store.rg-adguard.net/'
+                    }
+      
                     # required due to the api being protected behind Cloudflare now
                     if (-Not $apiWebSession) {
                         $global:apiWebSession = $null
                         $apiHostname = (($apiUrl.split('/'))[0..2]) -Join '/'
-                        Invoke-WebRequest -Uri $apiHostname -UserAgent $UserAgent -SessionVariable $apiWebSession -UseBasicParsing
+                        Invoke-WebRequest -Uri $apiHostname -UserAgent $UserAgent -SessionVariable $apiWebSession -UseBasicParsing 
                     }
-                  
+      
                     $raw = $null
                     try {
-                        $raw = Invoke-RestMethod -Method Post -Uri $apiUrl -ContentType 'application/x-www-form-urlencoded' -Body $body -UserAgent $UserAgent -WebSession $apiWebSession
+                        $raw = Invoke-RestMethod -Method Post -Uri $apiUrl -Headers $headers -Body $body -WebSession $apiWebSession
                     }
                     catch {
                         $errorMsg = 'An error occurred: ' + $_
@@ -551,7 +571,7 @@ $btnDownloadInstall.Add_Click({
                         $errored = $true
                         return $false
                     }
-                  
+      
                     # hashtable of packages by $name
                     #  > values = hashtables of packages by $version
                     #    > values = arrays of packages as objects (containing: url, filename, name, version, arch, publisherId, type)
@@ -568,7 +588,7 @@ $btnDownloadInstall.Add_Click({
                         $publisherId = ($textSplitUnderscore.split('_')[4]).split('.')[0]
                         $textSplitPeriod = $text.split('.')
                         $type = ($textSplitPeriod[$textSplitPeriod.length - 1]).ToLower()
-                  
+      
                         # create $name hash key hashtable, if it doesn't already exist
                         if (!($packageList.keys -match ('^' + [Regex]::escape($name) + '$'))) {
                             $packageList["$name"] = @{}
@@ -577,7 +597,7 @@ $btnDownloadInstall.Add_Click({
                         if (!(($packageList["$name"]).keys -match ('^' + [Regex]::escape($version) + '$'))) {
                             ($packageList["$name"])["$version"] = @()
                         }
-                   
+       
                         # add package to the array in the hashtable
                         ($packageList["$name"])["$version"] += @{
                             url         = $url
@@ -589,7 +609,7 @@ $btnDownloadInstall.Add_Click({
                             type        = $type
                         }
                     }
-                  
+      
                     # an array of packages as objects, meant to only contain one of each $name
                     $latestPackages = @()
                     # grabs the most updated package for $name and puts it into $latestPackages
@@ -604,15 +624,15 @@ $btnDownloadInstall.Add_Click({
                         elseif ($msix) { $latestPackages += $msix }
                         elseif ($appx) { $latestPackages += $appx }
                     }
-                  
+      
                     # download packages
                     $latestPackages | ForEach-Object {
                         $url = $_.url
                         $filename = $_.filename
                         # TODO: may need to include detection in the future of expired package download URLs..... in the case that downloads take over 10 minutes to complete
-                  
+      
                         $downloadFile = Join-Path $downloadFolder $filename
-                  
+      
                         # If file already exists, ask to replace it
                         if (Test-Path $downloadFile) {
                             Write-Host "`"${filename}`" already exists at `"${downloadFile}`"."
@@ -628,9 +648,9 @@ $btnDownloadInstall.Add_Click({
                                 $DownloadedFiles += $downloadFile
                             }
                         }
-                  
+      
                         if (!(Test-Path $downloadFile)) {
-                            Write-Host "Attempting download of `"${filename}`" to `"${downloadFile}`" . . ."
+                            # Write-Host "Attempting download of `"${filename}`" to `"${downloadFile}`" . . ."
                             $fileDownloaded = $null
                             $PreviousProgressPreference = $ProgressPreference
                             $ProgressPreference = 'SilentlyContinue' # avoids slow download when using Invoke-WebRequest
@@ -650,7 +670,7 @@ $btnDownloadInstall.Add_Click({
                             else { $allFilesDownloaded = $false }
                         }
                     }
-                  
+      
                     if ($errored) { Write-Host 'Completed with some errors.' }
                     if (-Not $allFilesDownloaded) { Write-Host 'Warning: Not all packages could be downloaded.' }
                     return $DownloadedFiles
