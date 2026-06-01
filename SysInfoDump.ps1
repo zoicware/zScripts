@@ -1,6 +1,6 @@
 If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]'Administrator')) {
-    Start-Process PowerShell.exe -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"{0}`"" -f $PSCommandPath) -Verb RunAs
-    Exit	
+  Start-Process PowerShell.exe -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"{0}`"" -f $PSCommandPath) -Verb RunAs
+  Exit	
 }
 
 $OutputPath = "$env:SystemDrive\"
@@ -17,205 +17,205 @@ Write-Host '[*] Starting system report collection...' -ForegroundColor Cyan
 # ─────────────────────────────────────────────────────────────────────────────
 
 function Format-Bytes {
-    param([long]$Bytes)
-    if ($Bytes -ge 1TB) { '{0:N2} TB' -f ($Bytes / 1TB) }
-    elseif ($Bytes -ge 1GB) { '{0:N2} GB' -f ($Bytes / 1GB) }
-    elseif ($Bytes -ge 1MB) { '{0:N2} MB' -f ($Bytes / 1MB) }
-    elseif ($Bytes -ge 1KB) { '{0:N2} KB' -f ($Bytes / 1KB) }
-    else { "$Bytes B" }
+  param([long]$Bytes)
+  if ($Bytes -ge 1TB) { '{0:N2} TB' -f ($Bytes / 1TB) }
+  elseif ($Bytes -ge 1GB) { '{0:N2} GB' -f ($Bytes / 1GB) }
+  elseif ($Bytes -ge 1MB) { '{0:N2} MB' -f ($Bytes / 1MB) }
+  elseif ($Bytes -ge 1KB) { '{0:N2} KB' -f ($Bytes / 1KB) }
+  else { "$Bytes B" }
 }
 
 function Format-Uptime {
-    param([timespan]$Span)
-    '{0}d {1}h {2}m {3}s' -f $Span.Days, $Span.Hours, $Span.Minutes, $Span.Seconds
+  param([timespan]$Span)
+  '{0}d {1}h {2}m {3}s' -f $Span.Days, $Span.Hours, $Span.Minutes, $Span.Seconds
 }
 
 function Html-Escape {
-    param([string]$s)
-    if (-not $s) { return '' }
-    $s -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;'
+  param([string]$s)
+  if (-not $s) { return '' }
+  $s -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;'
 }
 
 function Build-Table {
-    param(
-        [string]$Id,
-        [string[]]$Headers,
-        $Rows,
-        [string]$EmptyMsg = 'No data collected.'
-    )
-    if (-not $Rows -or $Rows.Count -eq 0) {
-        return "<p class='empty'>$EmptyMsg</p>"
-    }
-    $Rows = @($Rows)
-    if ($Rows[0] -isnot [array]) {
-        $Rows = @(, $Rows)
-    }
+  param(
+    [string]$Id,
+    [string[]]$Headers,
+    $Rows,
+    [string]$EmptyMsg = 'No data collected.'
+  )
+  if (-not $Rows -or $Rows.Count -eq 0) {
+    return "<p class='empty'>$EmptyMsg</p>"
+  }
+  $Rows = @($Rows)
+  if ($Rows[0] -isnot [array]) {
+    $Rows = @(, $Rows)
+  }
 
-    $sb = [System.Text.StringBuilder]::new()
-    $null = $sb.Append("<div class='tbl-wrap'><table id='$Id'><thead><tr>")
-    foreach ($h in $Headers) { $null = $sb.Append("<th>$(Html-Escape $h)</th>") }
-    $null = $sb.Append('</tr></thead><tbody>')
-    foreach ($row in $Rows) {
-        $null = $sb.Append('<tr>')
-        foreach ($cell in $row) { $null = $sb.Append("<td>$(Html-Escape ([string]$cell))</td>") }
-        $null = $sb.Append('</tr>')
-    }
-    $null = $sb.Append('</tbody></table></div>')
-    return $sb.ToString()
+  $sb = [System.Text.StringBuilder]::new()
+  $null = $sb.Append("<div class='tbl-wrap'><table id='$Id'><thead><tr>")
+  foreach ($h in $Headers) { $null = $sb.Append("<th>$(Html-Escape $h)</th>") }
+  $null = $sb.Append('</tr></thead><tbody>')
+  foreach ($row in $Rows) {
+    $null = $sb.Append('<tr>')
+    foreach ($cell in $row) { $null = $sb.Append("<td>$(Html-Escape ([string]$cell))</td>") }
+    $null = $sb.Append('</tr>')
+  }
+  $null = $sb.Append('</tbody></table></div>')
+  return $sb.ToString()
 }
 
 function Build-KVTable {
-    param([hashtable]$Data, [string]$Id)
-    $sb = [System.Text.StringBuilder]::new()
-    $null = $sb.Append("<table class='kv' id='$Id'>")
-    foreach ($key in ($Data.Keys | Sort-Object)) {
-        $v = Html-Escape ([string]$Data[$key])
-        $null = $sb.Append("<tr><th>$(Html-Escape $key)</th><td>$v</td></tr>")
-    }
-    $null = $sb.Append('</table>')
-    return $sb.ToString()
+  param([hashtable]$Data, [string]$Id)
+  $sb = [System.Text.StringBuilder]::new()
+  $null = $sb.Append("<table class='kv' id='$Id'>")
+  foreach ($key in ($Data.Keys | Sort-Object)) {
+    $v = Html-Escape ([string]$Data[$key])
+    $null = $sb.Append("<tr><th>$(Html-Escape $key)</th><td>$v</td></tr>")
+  }
+  $null = $sb.Append('</table>')
+  return $sb.ToString()
 }
 
 function Get-InstalledApps {
-    #gets installed apps from registry using the well known "uninstall" location (appwiz.cpl apps)
-    #gets additional apps from lesser known location (dups are removed)
-    param(
-        [switch]$AllApps #show apps even if they are marked as a system component
-    )
+  #gets installed apps from registry using the well known "uninstall" location (appwiz.cpl apps)
+  #gets additional apps from lesser known location (dups are removed)
+  param(
+    [switch]$AllApps #show apps even if they are marked as a system component
+  )
 
 
-    $regPath64 = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
-    $regPath32 = 'HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+  $regPath64 = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
+  $regPath32 = 'HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
 
-    $apps64 = Get-ChildItem $regPath64 
-    $apps32 = Get-ChildItem $regPath32
+  $apps64 = Get-ChildItem $regPath64 
+  $apps32 = Get-ChildItem $regPath32
 
 
-    $installedApps = @()
+  $installedApps = @()
 
-    foreach ($app64 in $apps64) {
-        $obj = Get-ItemProperty $app64.PSPath 
-        $installedApps += $obj
-    }
+  foreach ($app64 in $apps64) {
+    $obj = Get-ItemProperty $app64.PSPath 
+    $installedApps += $obj
+  }
 
-    foreach ($app32 in $apps32) {
-        $obj = Get-ItemProperty $app32.PSPath 
-        $installedApps += $obj
-    }
+  foreach ($app32 in $apps32) {
+    $obj = Get-ItemProperty $app32.PSPath 
+    $installedApps += $obj
+  }
 
-    #another location
-    $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData'
+  #another location
+  $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData'
 
-    $users = Get-ChildItem $regPath -ErrorAction SilentlyContinue
-    if ($users) {
-        foreach ($user in $users) {
-            $hives = Get-ChildItem "$($user.PSPath)\Products" 
+  $users = Get-ChildItem $regPath -ErrorAction SilentlyContinue
+  if ($users) {
+    foreach ($user in $users) {
+      $hives = Get-ChildItem "$($user.PSPath)\Products" 
 
-            foreach ($hive in $hives) {
-                try {
-                    $obj = Get-ItemProperty "$($hive.PSPath)\InstallProperties" -ErrorAction Stop
-                    $installedApps += $obj
-                }
-                catch {}
-
-            }
-
+      foreach ($hive in $hives) {
+        try {
+          $obj = Get-ItemProperty "$($hive.PSPath)\InstallProperties" -ErrorAction Stop
+          $installedApps += $obj
         }
+        catch {}
+
+      }
+
+    }
+  }
+
+  #some apps dont make a uninstall key so we need to find the missing installed apps using get-package
+  $additionalApps = @()
+  $programs = get-package -ProviderName Programs
+  foreach ($program in $programs) {
+    $appObj = [PSCustomObject]@{
+      DisplayName          = $null
+      DisplayIcon          = $null
+      UninstallString      = $null
+      Publisher            = $null
+      InstallSource        = $null
+      InstallLocation      = $null
+      QuietUninstallString = $null
     }
 
-    #some apps dont make a uninstall key so we need to find the missing installed apps using get-package
-    $additionalApps = @()
-    $programs = get-package -ProviderName Programs
-    foreach ($program in $programs) {
-        $appObj = [PSCustomObject]@{
-            DisplayName          = $null
-            DisplayIcon          = $null
-            UninstallString      = $null
-            Publisher            = $null
-            InstallSource        = $null
-            InstallLocation      = $null
-            QuietUninstallString = $null
-        }
-
-        $names = $program.meta.attributes.keys.localname
-        #get the index of the names inorder to index into the "values" array
-        $i = 0
-        $foundIndexIcon = $null
-        $foundIndexName = $null
-        $foundIndexUninstall = $null
-        $foundIndexPublisher = $null
-        $foundIndexSource = $null
-        $foundIndexLocation = $null
-        $foundIndexQuietUninstall = $null
-        foreach ($name in $names) {
-            if ($name -eq 'DisplayIcon') {
-                $foundIndexIcon = $i
-            }
-            elseif ($name -eq 'UninstallString') {
-                $foundIndexUninstall = $i
-            }
-            elseif ($name -eq 'DisplayName') {
-                $foundIndexname = $i
-            }
-            elseif ($name -eq 'Publisher') {
-                $foundIndexPublisher = $i
-            }
-            elseif ($name -eq 'InstallSource') {
-                $foundIndexSource = $i
-            }
-            elseif ($name -eq 'InstallLocation') {
-                $foundIndexLocation = $i
-            }
-            elseif ($name -eq 'QuietUninstallString') {
-                $foundIndexQuietUninstall = $i
-            }
-            $i++
+    $names = $program.meta.attributes.keys.localname
+    #get the index of the names inorder to index into the "values" array
+    $i = 0
+    $foundIndexIcon = $null
+    $foundIndexName = $null
+    $foundIndexUninstall = $null
+    $foundIndexPublisher = $null
+    $foundIndexSource = $null
+    $foundIndexLocation = $null
+    $foundIndexQuietUninstall = $null
+    foreach ($name in $names) {
+      if ($name -eq 'DisplayIcon') {
+        $foundIndexIcon = $i
+      }
+      elseif ($name -eq 'UninstallString') {
+        $foundIndexUninstall = $i
+      }
+      elseif ($name -eq 'DisplayName') {
+        $foundIndexname = $i
+      }
+      elseif ($name -eq 'Publisher') {
+        $foundIndexPublisher = $i
+      }
+      elseif ($name -eq 'InstallSource') {
+        $foundIndexSource = $i
+      }
+      elseif ($name -eq 'InstallLocation') {
+        $foundIndexLocation = $i
+      }
+      elseif ($name -eq 'QuietUninstallString') {
+        $foundIndexQuietUninstall = $i
+      }
+      $i++
             
-        }
+    }
      
 
-        if ($foundIndexName -ne $null) {
-            $appObj.DisplayName = $program.meta.attributes.values[$foundIndexname]
-        }
-
-        if ($foundIndexUninstall -ne $null) {
-            $appObj.UninstallString = $program.meta.attributes.values[$foundIndexUninstall]
-        }
-
-        if ($foundIndexPublisher -ne $null) {
-            $appObj.Publisher = $program.meta.attributes.values[$foundIndexPublisher]
-        }
-
-        if ($foundIndexSource -ne $null) {
-            $appObj.InstallSource = $program.meta.attributes.values[$foundIndexSource]
-        }
-
-        if ($foundIndexLocation -ne $null) {
-            $appObj.InstallLocation = $program.meta.attributes.values[$foundIndexLocation]
-        }
-
-
-
-        $additionalApps += $appobj
+    if ($foundIndexName -ne $null) {
+      $appObj.DisplayName = $program.meta.attributes.values[$foundIndexname]
     }
-    
-    #add the apps that install themselves to appdata and dont make a reg entry
-    
-    foreach ($app in $additionalApps) {
-        if (!($app.UninstallString -in @($installedApps.UninstallString))) {
-            $installedApps += $app
-        }
+
+    if ($foundIndexUninstall -ne $null) {
+      $appObj.UninstallString = $program.meta.attributes.values[$foundIndexUninstall]
     }
+
+    if ($foundIndexPublisher -ne $null) {
+      $appObj.Publisher = $program.meta.attributes.values[$foundIndexPublisher]
+    }
+
+    if ($foundIndexSource -ne $null) {
+      $appObj.InstallSource = $program.meta.attributes.values[$foundIndexSource]
+    }
+
+    if ($foundIndexLocation -ne $null) {
+      $appObj.InstallLocation = $program.meta.attributes.values[$foundIndexLocation]
+    }
+
+
+
+    $additionalApps += $appobj
+  }
+    
+  #add the apps that install themselves to appdata and dont make a reg entry
+    
+  foreach ($app in $additionalApps) {
+    if (!($app.UninstallString -in @($installedApps.UninstallString))) {
+      $installedApps += $app
+    }
+  }
   
       
 
-    #filter out empty apps
-    $installedApps = $installedApps | Where-Object { $_.DisplayName -ne $null }
+  #filter out empty apps
+  $installedApps = $installedApps | Where-Object { $_.DisplayName -ne $null }
 
-    #filter out duplicates
-    $installedApps = $installedApps | Group-Object -Property UninstallString | ForEach-Object { $_.Group | Select-Object -First 1 }
+  #filter out duplicates
+  $installedApps = $installedApps | Group-Object -Property UninstallString | ForEach-Object { $_.Group | Select-Object -First 1 }
 
-    return $installedApps
+  return $installedApps
 
 
 }
@@ -237,51 +237,51 @@ $OSBuildMinor = "$($key.GetValue('UBR'))"
 $key.Close()
 
 $osData = [ordered]@{
-    'Hostname'             = $env:COMPUTERNAME
-    'OS Name'              = $os.Caption
-    'OS Version'           = $os.Version + ".$OSBuildMinor"
-    'OS Architecture'      = $os.OSArchitecture
-    'Service Pack'         = if ($os.ServicePackMajorVersion -gt 0) { "SP$($os.ServicePackMajorVersion)" } else { 'N/A' }
-    'Install Date'         = $os.InstallDate.ToString('yyyy-MM-dd HH:mm:ss')
-    'Last Boot'            = $os.LastBootUpTime.ToString('yyyy-MM-dd HH:mm:ss')
-    'Uptime'               = $(Format-Uptime $uptime)
-    'Registered Owner'     = $os.RegisteredUser
-    'Registered Org'       = $os.Organization
-    'Windows Directory'    = $os.WindowsDirectory
-    'System Directory'     = $os.SystemDirectory
-    'System Drive'         = $os.SystemDrive
-    'Time Zone'            = $tzInfo.DisplayName
-    'Locale'               = $os.Locale
-    'MUI Languages'        = ($os.MUILanguages -join ', ')
-    'Total Visible RAM'    = $(Format-Bytes ($os.TotalVisibleMemorySize * 1KB))
-    'Free RAM'             = $(Format-Bytes ($os.FreePhysicalMemory * 1KB))
-    'Total Virtual Memory' = $(Format-Bytes ($os.TotalVirtualMemorySize * 1KB))
-    'Free Virtual Memory'  = $(Format-Bytes ($os.FreeVirtualMemory * 1KB))
-    'Domain / Workgroup'   = if ($cs.PartOfDomain) { $cs.Domain } else { "WORKGROUP: $($cs.Workgroup)" }
-    'Domain Role'          = $(switch ($cs.DomainRole) { 0 { 'Standalone Workstation' } 1 { 'Member Workstation' } 2 { 'Standalone Server' } 3 { 'Member Server' } 4 { 'Backup Domain Controller' } 5 { 'Primary Domain Controller' } })
-    'BIOS Version'         = $bios.SMBIOSBIOSVersion
-    'BIOS Date'            = $bios.ReleaseDate.ToString('yyyy-MM-dd')
-    'BIOS Manufacturer'    = $bios.Manufacturer
-    'Serial Number'        = $bios.SerialNumber
-    'Secure Boot'          = $(try { (Confirm-SecureBootUEFI 2>$null) } catch { 'N/A' })
+  'Hostname'             = $env:COMPUTERNAME
+  'OS Name'              = $os.Caption
+  'OS Version'           = $os.Version + ".$OSBuildMinor"
+  'OS Architecture'      = $os.OSArchitecture
+  'Service Pack'         = if ($os.ServicePackMajorVersion -gt 0) { "SP$($os.ServicePackMajorVersion)" } else { 'N/A' }
+  'Install Date'         = $os.InstallDate.ToString('yyyy-MM-dd HH:mm:ss')
+  'Last Boot'            = $os.LastBootUpTime.ToString('yyyy-MM-dd HH:mm:ss')
+  'Uptime'               = $(Format-Uptime $uptime)
+  'Registered Owner'     = $os.RegisteredUser
+  'Registered Org'       = $os.Organization
+  'Windows Directory'    = $os.WindowsDirectory
+  'System Directory'     = $os.SystemDirectory
+  'System Drive'         = $os.SystemDrive
+  'Time Zone'            = $tzInfo.DisplayName
+  'Locale'               = $os.Locale
+  'MUI Languages'        = ($os.MUILanguages -join ', ')
+  'Total Visible RAM'    = $(Format-Bytes ($os.TotalVisibleMemorySize * 1KB))
+  'Free RAM'             = $(Format-Bytes ($os.FreePhysicalMemory * 1KB))
+  'Total Virtual Memory' = $(Format-Bytes ($os.TotalVirtualMemorySize * 1KB))
+  'Free Virtual Memory'  = $(Format-Bytes ($os.FreeVirtualMemory * 1KB))
+  'Domain / Workgroup'   = if ($cs.PartOfDomain) { $cs.Domain } else { "WORKGROUP: $($cs.Workgroup)" }
+  'Domain Role'          = $(switch ($cs.DomainRole) { 0 { 'Standalone Workstation' } 1 { 'Member Workstation' } 2 { 'Standalone Server' } 3 { 'Member Server' } 4 { 'Backup Domain Controller' } 5 { 'Primary Domain Controller' } })
+  'BIOS Version'         = $bios.SMBIOSBIOSVersion
+  'BIOS Date'            = $bios.ReleaseDate.ToString('yyyy-MM-dd')
+  'BIOS Manufacturer'    = $bios.Manufacturer
+  'Serial Number'        = $bios.SerialNumber
+  'Secure Boot'          = $(try { (Confirm-SecureBootUEFI 2>$null) } catch { 'N/A' })
 }
 
 # ── Computer System ──────────────────────────────────────────────────────────
 Write-Host '  [+] Computer Hardware...' -ForegroundColor Gray
 
 $csData = [ordered]@{
-    'Manufacturer'        = $cs.Manufacturer
-    'Model'               = $cs.Model
-    'System Type'         = $cs.SystemType
-    'System SKU'          = $cs.SystemSKUNumber
-    'Chassis Types'       = $(try { (Get-CimInstance Win32_SystemEnclosure).ChassisTypes -join ', ' } catch { 'N/A' })
-    'Total Physical RAM'  = Format-Bytes ($cs.TotalPhysicalMemory)
-    'Logical Processors'  = $cs.NumberOfLogicalProcessors
-    'Physical Processors' = $cs.NumberOfProcessors
-    'HyperVisor Present'  = $cs.HypervisorPresent
-    'PCSystemType'        = switch ($cs.PCSystemType) { 0 { 'Unspecified' } 1 { 'Desktop' } 2 { 'Mobile' } 3 { 'Workstation' } 4 { 'Enterprise Server' } 5 { 'SOHO Server' } 6 { 'Appliance PC' } 7 { 'Performance Server' } 8 { 'Maximum' } default { $_ } }
-    'Power Supply State'  = $(try { (Get-CimInstance Win32_SystemEnclosure).PowerSupplyState } catch { 'N/A' })
-    'Wake-Up Type'        = switch ($cs.WakeUpType) { 0 { 'Reserved' } 1 { 'Other' } 2 { 'Unknown' } 3 { 'APM Timer' } 4 { 'Modem Ring' } 5 { 'LAN Remote' } 6 { 'Power Switch' } 7 { 'PCI PME#' } 8 { 'AC Power Restored' } default { $_ } }
+  'Manufacturer'        = $cs.Manufacturer
+  'Model'               = $cs.Model
+  'System Type'         = $cs.SystemType
+  'System SKU'          = $cs.SystemSKUNumber
+  'Chassis Types'       = $(try { (Get-CimInstance Win32_SystemEnclosure).ChassisTypes -join ', ' } catch { 'N/A' })
+  'Total Physical RAM'  = Format-Bytes ($cs.TotalPhysicalMemory)
+  'Logical Processors'  = $cs.NumberOfLogicalProcessors
+  'Physical Processors' = $cs.NumberOfProcessors
+  'HyperVisor Present'  = $cs.HypervisorPresent
+  'PCSystemType'        = switch ($cs.PCSystemType) { 0 { 'Unspecified' } 1 { 'Desktop' } 2 { 'Mobile' } 3 { 'Workstation' } 4 { 'Enterprise Server' } 5 { 'SOHO Server' } 6 { 'Appliance PC' } 7 { 'Performance Server' } 8 { 'Maximum' } default { $_ } }
+  'Power Supply State'  = $(try { (Get-CimInstance Win32_SystemEnclosure).PowerSupplyState } catch { 'N/A' })
+  'Wake-Up Type'        = switch ($cs.WakeUpType) { 0 { 'Reserved' } 1 { 'Other' } 2 { 'Unknown' } 3 { 'APM Timer' } 4 { 'Modem Ring' } 5 { 'LAN Remote' } 6 { 'Power Switch' } 7 { 'PCI PME#' } 8 { 'AC Power Restored' } default { $_ } }
 }
 
 # ── CPU ──────────────────────────────────────────────────────────────────────
@@ -289,21 +289,21 @@ Write-Host '  [+] CPU...' -ForegroundColor Gray
 
 $cpus = Get-CimInstance -ClassName Win32_Processor
 $cpuRows = foreach ($cpu in $cpus) {
-    , @(
-        $cpu.Name.Trim(),
-        $cpu.Manufacturer,
-        $cpu.NumberOfCores,
-        $cpu.NumberOfLogicalProcessors,
-        $cpu.ThreadCount,
-        "$($cpu.MaxClockSpeed) MHz",
-        (Format-Bytes ($cpu.L2CacheSize * 1KB)),
-        (Format-Bytes ($cpu.L3CacheSize * 1KB)),
-        $($cpu.Architecture -replace '0', 'x86' -replace '9', 'x64' -replace '12', 'ARM64'),
-        $cpu.CurrentVoltage,
-        $cpu.Status,
-        $cpu.SocketDesignation,
-        $cpu.Caption
-    )
+  , @(
+    $cpu.Name.Trim(),
+    $cpu.Manufacturer,
+    $cpu.NumberOfCores,
+    $cpu.NumberOfLogicalProcessors,
+    $cpu.ThreadCount,
+    "$($cpu.MaxClockSpeed) MHz",
+    (Format-Bytes ($cpu.L2CacheSize * 1KB)),
+    (Format-Bytes ($cpu.L3CacheSize * 1KB)),
+    $($cpu.Architecture -replace '0', 'x86' -replace '9', 'x64' -replace '12', 'ARM64'),
+    $cpu.CurrentVoltage,
+    $cpu.Status,
+    $cpu.SocketDesignation,
+    $cpu.Caption
+  )
 }
 $cpuHeaders = @('Name', 'Manufacturer', 'Cores', 'Logical Procs', 'Threads', 'Max Speed', 'L2 Cache', 'L3 Cache', 'Architecture', 'Voltage', 'Status', 'Socket', 'Caption')
 
@@ -312,17 +312,17 @@ Write-Host '  [+] RAM Modules...' -ForegroundColor Gray
 
 $ramModules = Get-CimInstance -ClassName Win32_PhysicalMemory
 $ramRows = foreach ($r in $ramModules) {
-    , @(
-        $r.BankLabel,
-        $r.DeviceLocator,
-        $(Format-Bytes $r.Capacity),
-        "$($r.Speed) MHz",
-        $r.Manufacturer,
-        $r.PartNumber.Trim(),
-        $r.SerialNumber,
-        $(switch ($r.MemoryType) { 0 { 'Unknown' } 20 { 'DDR' } 21 { 'DDR2' } 22 { 'DDR2 FB-DIMM' } 24 { 'DDR3' } 26 { 'DDR4' } 34 { 'DDR5' } default { "Type $($r.MemoryType)" } }),
-        $(switch ($r.FormFactor) { 8 { 'DIMM' } 12 { 'SO-DIMM' } 13 { 'TSOP' } default { "FF $($r.FormFactor)" } })
-    )
+  , @(
+    $r.BankLabel,
+    $r.DeviceLocator,
+    $(Format-Bytes $r.Capacity),
+    "$($r.Speed) MHz",
+    $r.Manufacturer,
+    $r.PartNumber.Trim(),
+    $r.SerialNumber,
+    $(switch ($r.MemoryType) { 0 { 'Unknown' } 20 { 'DDR' } 21 { 'DDR2' } 22 { 'DDR2 FB-DIMM' } 24 { 'DDR3' } 26 { 'DDR4' } 34 { 'DDR5' } default { "Type $($r.MemoryType)" } }),
+    $(switch ($r.FormFactor) { 8 { 'DIMM' } 12 { 'SO-DIMM' } 13 { 'TSOP' } default { "FF $($r.FormFactor)" } })
+  )
 }
 $ramHeaders = @('Bank', 'Slot', 'Capacity', 'Speed', 'Manufacturer', 'Part Number', 'Serial', 'Type', 'Form Factor')
 
@@ -332,58 +332,58 @@ Write-Host '  [+] Disks & Volumes...' -ForegroundColor Gray
 # Get-CimInstance Win32_DiskDrive is faster than Get-Disk (requires Storage module)
 $physDisks = Get-CimInstance -ClassName Win32_DiskDrive
 $diskRows = foreach ($d in $physDisks) {
-    , @(
-        $d.Index,
-        $d.Model,
-        $d.Manufacturer,
-        $d.InterfaceType,
-        $(Format-Bytes $d.Size),
-        $d.Partitions,
-        $d.TotalCylinders,
-        $d.TracksPerCylinder,
-        $d.SectorsPerTrack,
-        $d.BytesPerSector,
-        $d.SerialNumber.Trim(),
-        $d.FirmwareRevision,
-        $d.Status,
-        $d.MediaType
-    )
+  , @(
+    $d.Index,
+    $d.Model,
+    $d.Manufacturer,
+    $d.InterfaceType,
+    $(Format-Bytes $d.Size),
+    $d.Partitions,
+    $d.TotalCylinders,
+    $d.TracksPerCylinder,
+    $d.SectorsPerTrack,
+    $d.BytesPerSector,
+    $d.SerialNumber.Trim(),
+    $d.FirmwareRevision,
+    $d.Status,
+    $d.MediaType
+  )
 }
 $diskHeaders = @('Index', 'Model', 'Manufacturer', 'Interface', 'Size', 'Partitions', 'Cylinders', 'Tracks/Cyl', 'Sectors/Track', 'Bytes/Sector', 'Serial', 'Firmware', 'Status', 'Media Type')
 
 # Logical Drives / Volumes — Get-CimInstance is faster than Get-PSDrive
 $logicalDisks = Get-CimInstance -ClassName Win32_LogicalDisk
 $volRows = foreach ($v in $logicalDisks) {
-    $pct = if ($v.Size -gt 0) { [math]::Round(($v.FreeSpace / $v.Size) * 100, 1) } else { 0 }
-    , @(
-        $v.DeviceID,
-        $v.VolumeName,
-        $v.FileSystem,
-        $(switch ($v.DriveType) { 0 { 'Unknown' } 1 { 'No Root' } 2 { 'Removable' } 3 { 'Local' } 4 { 'Network' } 5 { 'Compact' } 6 { 'RAM' } default { $_ } }),
-        $(Format-Bytes $v.Size),
-        $(Format-Bytes $v.FreeSpace),
-        "$pct%",
-        $v.VolumeSerialNumber,
-        $v.Description
-    )
+  $pct = if ($v.Size -gt 0) { [math]::Round(($v.FreeSpace / $v.Size) * 100, 1) } else { 0 }
+  , @(
+    $v.DeviceID,
+    $v.VolumeName,
+    $v.FileSystem,
+    $(switch ($v.DriveType) { 0 { 'Unknown' } 1 { 'No Root' } 2 { 'Removable' } 3 { 'Local' } 4 { 'Network' } 5 { 'Compact' } 6 { 'RAM' } default { $_ } }),
+    $(Format-Bytes $v.Size),
+    $(Format-Bytes $v.FreeSpace),
+    "$pct%",
+    $v.VolumeSerialNumber,
+    $v.Description
+  )
 }
 $volHeaders = @('Drive', 'Label', 'FS', 'Type', 'Total', 'Free', 'Free%', 'Volume Serial', 'Description')
 
 # Partitions
 $partRows = foreach ($p in (Get-CimInstance -ClassName Win32_DiskPartition)) {
-    , @(
-        $p.DiskIndex,
-        $p.Index,
-        $p.Name,
-        $p.Type,
-        $(Format-Bytes $p.Size),
-        $(Format-Bytes ($p.StartingOffset)),
-        $p.Bootable,
-        $p.BootPartition,
-        $p.PrimaryPartition,
-        $p.BlockSize,
-        $p.NumberOfBlocks
-    )
+  , @(
+    $p.DiskIndex,
+    $p.Index,
+    $p.Name,
+    $p.Type,
+    $(Format-Bytes $p.Size),
+    $(Format-Bytes ($p.StartingOffset)),
+    $p.Bootable,
+    $p.BootPartition,
+    $p.PrimaryPartition,
+    $p.BlockSize,
+    $p.NumberOfBlocks
+  )
 }
 $partHeaders = @('Disk', 'Part#', 'Name', 'Type', 'Size', 'Offset', 'Bootable', 'Boot Part', 'Primary', 'Block Size', 'Blocks')
 
@@ -396,32 +396,32 @@ $netConfigs = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -Filt
 $netAdapters = Get-CimInstance -ClassName Win32_NetworkAdapter
 
 $netRows = foreach ($n in $netConfigs) {
-    $adapter = $netAdapters | Where-Object { $_.Index -eq $n.Index }
-    , @(
-        $n.Description,
-        $adapter.NetConnectionID,
-        $((Format-Bytes $adapter.Speed) + '/s'),
-        $($n.DefaultIPGateway | Select-Object -first 1),
-        $n.MACAddress,
-        $n.DHCPEnabled,
-        $n.DHCPServer,
-        $n.DHCPLeaseObtained,
-        $n.DHCPLeaseExpires,
-        $adapter.NetEnabled,
-        $n.WINSPrimaryServer
-    )
+  $adapter = $netAdapters | Where-Object { $_.Index -eq $n.Index }
+  , @(
+    $n.Description,
+    $adapter.NetConnectionID,
+    $((Format-Bytes $adapter.Speed) + '/s'),
+    $($n.DefaultIPGateway | Select-Object -first 1),
+    $n.MACAddress,
+    $n.DHCPEnabled,
+    $n.DHCPServer,
+    $n.DHCPLeaseObtained,
+    $n.DHCPLeaseExpires,
+    $adapter.NetEnabled,
+    $n.WINSPrimaryServer
+  )
 }
 $netHeaders = @('Adapter', 'Connection ID', 'Speed', 'Gateway', 'MAC', 'DHCP?', 'DHCP Server', 'Lease Obtained', 'Lease Expires', 'Enabled', 'WINS Primary')
 
 # DNS Cache — faster via .NET/CIM than Resolve-DnsName loops
 $dnsCache = @()
 try {
-    $dnsCache = Get-DnsClientCache | Select-Object Entry, RecordName, RecordType, Status, DataLength, Data, TimeToLive
+  $dnsCache = Get-DnsClientCache | Select-Object Entry, RecordName, RecordType, Status, DataLength, Data, TimeToLive
 }
 catch {}
 
 $dnsCacheRows = foreach ($d in $dnsCache) {
-    , @($d.Entry, $d.RecordName, $d.RecordType, $d.Status, $d.DataLength, $d.Data, $d.TimeToLive)
+  , @($d.Entry, $d.RecordName, $d.RecordType, $d.Status, $d.DataLength, $d.Data, $d.TimeToLive)
 }
 $dnsCacheHeaders = @('Entry', 'Record Name', 'Type', 'Status', 'Data Length', 'Data', 'TTL')
 
@@ -430,46 +430,46 @@ Write-Host '  [+] GPU...' -ForegroundColor Gray
 
 $gpus = Get-CimInstance -ClassName Win32_VideoController
 $gpuRows = foreach ($g in $gpus) {
-    , @(
-        $g.Name,
-        $g.VideoProcessor,
-        $g.AdapterCompatibility,
-        $(Format-Bytes $g.AdapterRAM),
-        "$($g.CurrentHorizontalResolution) x $($g.CurrentVerticalResolution)",
-        "$($g.CurrentRefreshRate) Hz",
-        $g.CurrentBitsPerPixel,
-        $g.VideoModeDescription,
-        $g.DriverVersion,
-        $g.DriverDate,
-        $g.Status,
-        $g.VideoArchitecture,
-        $g.VideoMemoryType
-    )
+  , @(
+    $g.Name,
+    $g.VideoProcessor,
+    $g.AdapterCompatibility,
+    $(Format-Bytes $g.AdapterRAM),
+    "$($g.CurrentHorizontalResolution) x $($g.CurrentVerticalResolution)",
+    "$($g.CurrentRefreshRate) Hz",
+    $g.CurrentBitsPerPixel,
+    $g.VideoModeDescription,
+    $g.DriverVersion,
+    $g.DriverDate,
+    $g.Status,
+    $g.VideoArchitecture,
+    $g.VideoMemoryType
+  )
 }
 $gpuHeaders = @('Name', 'Processor', 'Compatibility', 'VRAM', 'Resolution', 'Refresh', 'BPP', 'Mode', 'Driver Ver', 'Driver Date', 'Status', 'Architecture', 'Memory Type')
 
 # ── Monitors ─────────────────────────────────────────────────────────────────
 $monitors = Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID
 $monRows = foreach ($m in $monitors) {
-    $mfr = ($m.ManufacturerName  | Where-Object { $_ }) -join ''
-    $prod = ($m.ProductCodeID     | Where-Object { $_ }) -join ''
-    $sn = ($m.SerialNumberID    | Where-Object { $_ }) -join ''
-    $name = ($m.UserFriendlyName  | Where-Object { $_ }) -join ''
-    , @(
-        $mfr,
-        $name,
-        $sn,
-        $prod,
-        $m.InstanceName,
-        $m.WeekOfManufacture,
-        $m.YearOfManufacture
-    )
+  $mfr = ($m.ManufacturerName  | Where-Object { $_ }) -join ''
+  $prod = ($m.ProductCodeID     | Where-Object { $_ }) -join ''
+  $sn = ($m.SerialNumberID    | Where-Object { $_ }) -join ''
+  $name = ($m.UserFriendlyName  | Where-Object { $_ }) -join ''
+  , @(
+    $mfr,
+    $name,
+    $sn,
+    $prod,
+    $m.InstanceName,
+    $m.WeekOfManufacture,
+    $m.YearOfManufacture
+  )
 }
 $monHeaders = @('Manufacturer', 'Name', 'Serial', 'Product Code', 'Instance', 'Week', 'Year')
 
 # ── Sound Devices ─────────────────────────────────────────────────────────────
 $soundRows = foreach ($s in (Get-CimInstance -ClassName Win32_SoundDevice)) {
-    , @($s.Name, $s.Manufacturer, $s.Status, $s.DeviceID, $s.ProductName)
+  , @($s.Name, $s.Manufacturer, $s.Status, $s.DeviceID, $s.ProductName)
 }
 $soundHeaders = @('Name', 'Manufacturer', 'Status', 'Device ID', 'Product Name')
 
@@ -480,14 +480,14 @@ Write-Host '  [+] All Devices (PnP)...' -ForegroundColor Gray
 # because it uses the StorageManagement module's native PnP provider
 $allDevices = Get-PnpDevice -PresentOnly | Sort-Object Class, FriendlyName
 $devRows = foreach ($d in $allDevices) {
-    , @($d.FriendlyName, $d.Class, $d.InstanceId, $d.Status, $d.Problem, $d.ProblemDescription)
+  , @($d.FriendlyName, $d.Class, $d.InstanceId, $d.Status, $d.Problem, $d.ProblemDescription)
 }
 $devHeaders = @('Name', 'Class', 'Instance ID', 'Status', 'Problem Code', 'Problem Description')
 
 # Problem Devices only
 $problemDevices = $allDevices | Where-Object { $_.Status -ne 'OK' -and $_.Problem -ne 0 }
 $probRows = foreach ($d in $problemDevices) {
-    , @($d.FriendlyName, $d.Class, $d.InstanceId, $d.Status, $d.Problem, $d.ProblemDescription)
+  , @($d.FriendlyName, $d.Class, $d.InstanceId, $d.Status, $d.Problem, $d.ProblemDescription)
 }
 
 # ── Services ──────────────────────────────────────────────────────────────────
@@ -496,17 +496,17 @@ Write-Host '  [+] Services...' -ForegroundColor Gray
 # Get-CimInstance Win32_Service returns richer data than Get-Service in one call
 $services = Get-CimInstance -ClassName Win32_Service | Sort-Object StartMode, State, Name
 $svcRows = foreach ($s in $services) {
-    , @(
-        $s.Name,
-        $s.DisplayName,
-        $s.State,
-        $s.StartMode,
-        $s.StartName,
-        $s.PathName,
-        $s.Description,
-        $s.ProcessId,
-        $s.DelayedAutoStart
-    )
+  , @(
+    $s.Name,
+    $s.DisplayName,
+    $s.State,
+    $s.StartMode,
+    $s.StartName,
+    $s.PathName,
+    $s.Description,
+    $s.ProcessId,
+    $s.DelayedAutoStart
+  )
 }
 $svcHeaders = @('Name', 'Display Name', 'State', 'Start Mode', 'Logon As', 'Path', 'Description', 'PID', 'Delayed Auto Start')
 
@@ -516,17 +516,17 @@ Write-Host '  [+] Drivers...' -ForegroundColor Gray
 # Win32_SystemDriver gives running kernel drivers without needing driverquery.exe
 $drivers = Get-CimInstance -ClassName Win32_SystemDriver | Sort-Object State, Name
 $drvRows = foreach ($d in $drivers) {
-    , @(
-        $d.Name,
-        $d.DisplayName,
-        $d.State,
-        $d.StartMode,
-        $d.PathName,
-        $d.ServiceType,
-        $d.Description,
-        $d.AcceptStop,
-        $d.AcceptPause
-    )
+  , @(
+    $d.Name,
+    $d.DisplayName,
+    $d.State,
+    $d.StartMode,
+    $d.PathName,
+    $d.ServiceType,
+    $d.Description,
+    $d.AcceptStop,
+    $d.AcceptPause
+  )
 }
 $drvHeaders = @('Name', 'Display Name', 'State', 'Start Mode', 'Path', 'Type', 'Description', 'Accept Stop', 'Accept Pause')
 
@@ -537,18 +537,18 @@ Write-Host '  [+] Processes...' -ForegroundColor Gray
 # CommandLine, ParentProcessId without extra lookups
 $processes = Get-CimInstance -ClassName Win32_Process | Sort-Object Name
 $procRows = foreach ($p in $processes) {
-    , @(
-        $p.ProcessId,
-        $p.ParentProcessId,
-        $p.Name,
-        $(Format-Bytes $p.WorkingSetSize),
-        $(Format-Bytes $p.VirtualSize),
-        $p.ThreadCount,
-        $p.HandleCount,
-        $p.CreationDate,
-        $p.CommandLine,
-        $p.ExecutablePath
-    )
+  , @(
+    $p.ProcessId,
+    $p.ParentProcessId,
+    $p.Name,
+    $(Format-Bytes $p.WorkingSetSize),
+    $(Format-Bytes $p.VirtualSize),
+    $p.ThreadCount,
+    $p.HandleCount,
+    $p.CreationDate,
+    $p.CommandLine,
+    $p.ExecutablePath
+  )
 }
 $procHeaders = @('PID', 'PPID', 'Name', 'Working Set', 'Virtual Mem', 'Threads', 'Handles', 'Created', 'Command Line', 'Path')
 
@@ -557,7 +557,7 @@ Write-Host '  [+] Startup...' -ForegroundColor Gray
 
 $startupItems = Get-CimInstance -ClassName Win32_StartupCommand
 $startRows = foreach ($s in $startupItems) {
-    , @($s.Name, $s.Command, $s.Location, $s.User, $s.Caption)
+  , @($s.Name, $s.Command, $s.Location, $s.User, $s.Caption)
 }
 $startHeaders = @('Name', 'Command', 'Location', 'User', 'Caption')
 
@@ -566,15 +566,15 @@ $appRows = @()
 
 $apps = Get-InstalledApps -AllApps
 $appRows = foreach ($a in $apps) {
-    , @(
-        $a.DisplayName,
-        $a.DisplayVersion,
-        $a.Publisher,
-        $a.InstallDate,
-        $a.InstallLocation,
-        $a.UninstallString,
-        (Format-Bytes ($a.EstimatedSize * 1KB))
-    )
+  , @(
+    $a.DisplayName,
+    $a.DisplayVersion,
+    $a.Publisher,
+    $a.InstallDate,
+    $a.InstallLocation,
+    $a.UninstallString,
+    (Format-Bytes ($a.EstimatedSize * 1KB))
+  )
 }
 
 $appHeaders = @('Name', 'Version', 'Publisher', 'Install Date', 'Location', 'Uninstall String', 'Est. Size')
@@ -585,17 +585,17 @@ Write-Host '  [+] AppX Packages...' -ForegroundColor Gray
 # Get-AppxPackage is the only clean method for this; no faster alternative
 $appx = Get-AppxPackage -AllUsers | Sort-Object Name
 $appxRows = foreach ($a in $appx) {
-    , @(
-        $a.Name,
-        $a.Version,
-        $a.Publisher,
-        $a.Architecture,
-        $a.PackageUserInformation.UserSecurityId,
-        $a.InstallLocation,
-        $a.IsFramework,
-        $a.IsResourcePackage,
-        $a.SignatureKind
-    )
+  , @(
+    $a.Name,
+    $a.Version,
+    $a.Publisher,
+    $a.Architecture,
+    $a.PackageUserInformation.UserSecurityId,
+    $a.InstallLocation,
+    $a.IsFramework,
+    $a.IsResourcePackage,
+    $a.SignatureKind
+  )
 }
 
 $appxHeaders = @('Name', 'Version', 'Publisher', 'Architecture', 'Users', 'Install Location', 'Framework', 'Resource Pkg', 'Signature')
@@ -617,7 +617,7 @@ Write-Host '  [+] Hotfixes...' -ForegroundColor Gray
 # is the same speed, so either is fine — using Get-HotFix for readability
 $hotfixes = Get-HotFix | Sort-Object InstalledOn -Descending
 $hfRows = foreach ($h in $hotfixes) {
-    , @($h.HotFixID, $h.Description, $h.InstalledBy, $h.InstalledOn, $h.Caption)
+  , @($h.HotFixID, $h.Description, $h.InstalledBy, $h.InstalledOn, $h.Caption)
 }
 $hfHeaders = @('ID', 'Description', 'Installed By', 'Installed On', 'Caption')
 
@@ -626,17 +626,17 @@ Write-Host '  [+] Scheduled Tasks...' -ForegroundColor Gray
 
 $tasks = Get-ScheduledTask | Where-Object { $_.State -ne 'Disabled' } | Sort-Object TaskPath, TaskName
 $taskRows = foreach ($t in $tasks) {
-    $info = $t | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue
-    , @(
-        $t.TaskName,
-        $t.TaskPath,
-        $t.State,
-        $t.Description,
-        $info.LastRunTime,
-        $info.NextRunTime,
-        $info.LastTaskResult,
-        ($t.Actions | ForEach-Object { $_.Execute } | Select-Object -First 1)
-    )
+  $info = $t | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue
+  , @(
+    $t.TaskName,
+    $t.TaskPath,
+    $t.State,
+    $t.Description,
+    $info.LastRunTime,
+    $info.NextRunTime,
+    $info.LastTaskResult,
+    ($t.Actions | ForEach-Object { $_.Execute } | Select-Object -First 1)
+  )
 }
 $taskHeaders = @('Task Name', 'Path', 'State', 'Description', 'Last Run', 'Next Run', 'Last Result', 'Executable')
 
@@ -645,21 +645,21 @@ Write-Host '  [+] Network Connections...' -ForegroundColor Gray
 
 $tcpConns = Get-NetTCPConnection | Sort-Object State, LocalPort
 $tcpRows = foreach ($c in $tcpConns) {
-    $proc = if ($c.OwningProcess -gt 0) { (Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue).Name } else { '' }
-    , @($c.LocalAddress, $c.LocalPort, $c.RemoteAddress, $c.RemotePort, $c.State, $c.OwningProcess, $proc)
+  $proc = if ($c.OwningProcess -gt 0) { (Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue).Name } else { '' }
+  , @($c.LocalAddress, $c.LocalPort, $c.RemoteAddress, $c.RemotePort, $c.State, $c.OwningProcess, $proc)
 }
 $tcpHeaders = @('Local Address', 'Local Port', 'Remote Address', 'Remote Port', 'State', 'PID', 'Process')
 
 $udpEndpoints = Get-NetUDPEndpoint | Sort-Object LocalPort
 $udpRows = foreach ($u in $udpEndpoints) {
-    $proc = if ($u.OwningProcess -gt 0) { (Get-Process -Id $u.OwningProcess -ErrorAction SilentlyContinue).Name } else { '' }
-    , @($u.LocalAddress, $u.LocalPort, $u.OwningProcess, $proc)
+  $proc = if ($u.OwningProcess -gt 0) { (Get-Process -Id $u.OwningProcess -ErrorAction SilentlyContinue).Name } else { '' }
+  , @($u.LocalAddress, $u.LocalPort, $u.OwningProcess, $proc)
 }
 $udpHeaders = @('Local Address', 'Local Port', 'PID', 'Process')
 
 # ── Shares ────────────────────────────────────────────────────────────────────
 $shareRows = foreach ($s in (Get-CimInstance -ClassName Win32_Share)) {
-    , @($s.Name, $s.Path, $s.Description, $s.Type, $s.MaximumAllowed, $s.Caption)
+  , @($s.Name, $s.Path, $s.Description, $s.Type, $s.MaximumAllowed, $s.Caption)
 }
 $shareHeaders = @('Name', 'Path', 'Description', 'Type', 'Max Allowed', 'Caption')
 
@@ -668,26 +668,26 @@ Write-Host '  [+] Users & Groups...' -ForegroundColor Gray
 
 $localUsers = Get-LocalUser
 $userRows = foreach ($u in $localUsers) {
-    , @(
-        $u.Name,
-        $u.FullName,
-        $u.Enabled,
-        $u.AccountExpires,
-        $u.LastLogon,
-        $u.PasswordLastSet,
-        $u.PasswordExpires,
-        $u.PasswordRequired,
-        $u.UserMayChangePassword,
-        $u.Description,
-        $u.SID
-    )
+  , @(
+    $u.Name,
+    $u.FullName,
+    $u.Enabled,
+    $u.AccountExpires,
+    $u.LastLogon,
+    $u.PasswordLastSet,
+    $u.PasswordExpires,
+    $u.PasswordRequired,
+    $u.UserMayChangePassword,
+    $u.Description,
+    $u.SID
+  )
 }
 $userHeaders = @('Name', 'Full Name', 'Enabled', 'Expires', 'Last Logon', 'Pwd Last Set', 'Pwd Expires', 'Pwd Required', 'User Can Change Pwd', 'Description', 'SID')
 
 $localGroups = Get-LocalGroup
 $grpRows = foreach ($g in $localGroups) {
-    $members = (Get-LocalGroupMember $g.Name -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) -join '; '
-    , @($g.Name, $g.Description, $g.SID, $members)
+  $members = (Get-LocalGroupMember $g.Name -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) -join '; '
+  , @($g.Name, $g.Description, $g.SID, $members)
 }
 $grpHeaders = @('Group', 'Description', 'SID', 'Members')
 
@@ -698,44 +698,44 @@ Write-Host '  [+] Event Log Summary...' -ForegroundColor Gray
 $recentErrors = Get-WinEvent -FilterHashtable @{LogName = 'System', 'Application'; Level = 2; StartTime = (Get-Date).AddDays(-7) } -MaxEvents 200 -ErrorAction SilentlyContinue |
 Sort-Object TimeCreated -Descending
 $evtRows = foreach ($e in $recentErrors) {
-    , @($e.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'), $e.LogName, $e.Id, $e.LevelDisplayName, $e.ProviderName, ($e.Message -replace "`r`n", ' ' | Select-Object -First 1))
+  , @($e.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'), $e.LogName, $e.Id, $e.LevelDisplayName, $e.ProviderName, ($e.Message -replace "`r`n", ' ' | Select-Object -First 1))
 }
 $evtHeaders = @('Time', 'Log', 'Event ID', 'Level', 'Source', 'Message')
 
 # ── TPM ───────────────────────────────────────────────────────────────────────
 $tpmData = [ordered]@{}
 try {
-    $tpm = Get-CimInstance -Namespace root/cimv2/security/microsofttpm -ClassName Win32_Tpm
-    if ($tpm) {
-        $tpmData = [ordered]@{
-            'TPM Enabled'       = $tpm.IsEnabled_InitialValue
-            'TPM Activated'     = $tpm.IsActivated_InitialValue
-            'TPM Owned'         = $tpm.IsOwned_InitialValue
-            'Spec Version'      = $tpm.SpecVersion
-            'Manufacturer ID'   = $tpm.ManufacturerId
-            'Manufacturer Info' = $tpm.ManufacturerIdTxt
-            'Manufacturer Ver'  = $tpm.ManufacturerVersion
-        }
+  $tpm = Get-CimInstance -Namespace root/cimv2/security/microsofttpm -ClassName Win32_Tpm
+  if ($tpm) {
+    $tpmData = [ordered]@{
+      'TPM Enabled'       = $tpm.IsEnabled_InitialValue
+      'TPM Activated'     = $tpm.IsActivated_InitialValue
+      'TPM Owned'         = $tpm.IsOwned_InitialValue
+      'Spec Version'      = $tpm.SpecVersion
+      'Manufacturer ID'   = $tpm.ManufacturerId
+      'Manufacturer Info' = $tpm.ManufacturerIdTxt
+      'Manufacturer Ver'  = $tpm.ManufacturerVersion
     }
+  }
 }
 catch {}
 
 # ── Battery ───────────────────────────────────────────────────────────────────
 $batData = [ordered]@{}
 try {
-    $bat = Get-CimInstance -ClassName Win32_Battery
-    if ($bat) {
-        $batData = [ordered]@{
-            'Name'                 = $bat.Name
-            'Status'               = $bat.Status
-            'Charge %'             = "$($bat.EstimatedChargeRemaining)%"
-            'Est. Runtime'         = "$($bat.EstimatedRunTime) min"
-            'Battery Status'       = switch ($bat.BatteryStatus) { 1 { 'Discharging' } 2 { 'On AC' } 3 { 'Full Charged' } 4 { 'Low' } 5 { 'Critical' } 6 { 'Charging' } 7 { 'Charging/High' } 8 { 'Charging/Low' } 9 { 'Charging/Critical' } 10 { 'Undefined' } 11 { 'Partially Charged' } default { $_ } }
-            'Design Capacity'      = $bat.DesignCapacity
-            'Full Charge Capacity' = $bat.FullChargeCapacity
-            'Chemistry'            = switch ($bat.Chemistry) { 1 { 'Other' } 2 { 'Unknown' } 3 { 'Lead Acid' } 4 { 'Nickel Cadmium' } 5 { 'Nickel Metal Hydride' } 6 { 'Lithium-ion' } 7 { 'Zinc air' } 8 { 'Lithium Polymer' } default { $_ } }
-        }
+  $bat = Get-CimInstance -ClassName Win32_Battery
+  if ($bat) {
+    $batData = [ordered]@{
+      'Name'                 = $bat.Name
+      'Status'               = $bat.Status
+      'Charge %'             = "$($bat.EstimatedChargeRemaining)%"
+      'Est. Runtime'         = "$($bat.EstimatedRunTime) min"
+      'Battery Status'       = switch ($bat.BatteryStatus) { 1 { 'Discharging' } 2 { 'On AC' } 3 { 'Full Charged' } 4 { 'Low' } 5 { 'Critical' } 6 { 'Charging' } 7 { 'Charging/High' } 8 { 'Charging/Low' } 9 { 'Charging/Critical' } 10 { 'Undefined' } 11 { 'Partially Charged' } default { $_ } }
+      'Design Capacity'      = $bat.DesignCapacity
+      'Full Charge Capacity' = $bat.FullChargeCapacity
+      'Chemistry'            = switch ($bat.Chemistry) { 1 { 'Other' } 2 { 'Unknown' } 3 { 'Lead Acid' } 4 { 'Nickel Cadmium' } 5 { 'Nickel Metal Hydride' } 6 { 'Lithium-ion' } 7 { 'Zinc air' } 8 { 'Lithium Polymer' } default { $_ } }
     }
+  }
 }
 catch {}
 
@@ -751,26 +751,26 @@ $generatedAt = Get-Date -Format 'dddd, MMMM d yyyy  HH:mm:ss'
 
 # Build nav items
 $navItems = @(
-    @{id = 'sec-os'; label = 'OS'; icon = '🖥️' }
-    @{id = 'sec-hw'; label = 'Hardware'; icon = '🔧' }
-    @{id = 'sec-cpu'; label = 'CPU'; icon = '⚡' }
-    @{id = 'sec-ram'; label = 'RAM'; icon = '💾' }
-    @{id = 'sec-disk'; label = 'Storage'; icon = '💿' }
-    @{id = 'sec-gpu'; label = 'Display'; icon = '🖵' }
-    @{id = 'sec-net'; label = 'Network'; icon = '🌐' }
-    @{id = 'sec-procs'; label = 'Processes'; icon = '⚙️' }
-    @{id = 'sec-services'; label = 'Services'; icon = '🔌' }
-    @{id = 'sec-drivers'; label = 'Drivers'; icon = '📦' }
-    @{id = 'sec-apps'; label = 'Apps'; icon = '📋' }
-    @{id = 'sec-security'; label = 'Security'; icon = '🔒' }
-    @{id = 'sec-sched'; label = 'Tasks'; icon = '📅' }
-    @{id = 'sec-users'; label = 'Users'; icon = '👤' }
-    @{id = 'sec-events'; label = 'Events'; icon = '📊' }
-    @{id = 'sec-env'; label = 'Environment'; icon = '📝' }
+  @{id = 'sec-os'; label = 'OS'; icon = '&#x1F5A5;&#xFE0F;' }
+  @{id = 'sec-hw'; label = 'Hardware'; icon = '&#x1F527;' }
+  @{id = 'sec-cpu'; label = 'CPU'; icon = '&#x26A1;' }
+  @{id = 'sec-ram'; label = 'RAM'; icon = '&#x1F4BE;' }
+  @{id = 'sec-disk'; label = 'Storage'; icon = '&#x1F4BF;' }
+  @{id = 'sec-gpu'; label = 'Display'; icon = '&#x1F5B5;' }
+  @{id = 'sec-net'; label = 'Network'; icon = '&#x1F310;' }
+  @{id = 'sec-procs'; label = 'Processes'; icon = '&#x2699;&#xFE0F;' }
+  @{id = 'sec-services'; label = 'Services'; icon = '&#x1F50C;' }
+  @{id = 'sec-drivers'; label = 'Drivers'; icon = '&#x1F4E6;' }
+  @{id = 'sec-apps'; label = 'Apps'; icon = '&#x1F4CB;' }
+  @{id = 'sec-security'; label = 'Security'; icon = '&#x1F512;' }
+  @{id = 'sec-sched'; label = 'Tasks'; icon = '&#x1F4C5;' }
+  @{id = 'sec-users'; label = 'Users'; icon = '&#x1F464;' }
+  @{id = 'sec-events'; label = 'Events'; icon = '&#x1F4CA;' }
+  @{id = 'sec-env'; label = 'Environment'; icon = '&#x1F4DD;' }
 )
 
 $navHtml = $navItems | ForEach-Object {
-    "<a href='#$($_.id)' class='nav-link'><span class='nav-icon'>$($_.icon)</span><span class='nav-text'>$($_.label)</span></a>"
+  "<a href='#$($_.id)' class='nav-link'><span class='nav-icon'>$($_.icon)</span><span class='nav-text'>$($_.label)</span></a>"
 }
 
 $html = @"
@@ -779,7 +779,7 @@ $html = @"
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>System Report — $($env:COMPUTERNAME)</title>
+<title>System Report - $($env:COMPUTERNAME)</title>
 <style>
 :root {
   --bg0: #0d0f13;
@@ -1183,15 +1183,15 @@ $($navHtml -join "`n")
 
 <div id="main">
   <div id="page-header">
-    <div class="logo">🖥</div>
+    <div class="logo">&#x1F5A5;</div>
     <div>
       <h1>System Report</h1>
-      <div class="subtitle">$($env:COMPUTERNAME) &nbsp;·&nbsp; Generated $generatedAt &nbsp;·&nbsp; Collected in $($elapsed.TotalSeconds.ToString('N1'))s</div>
+      <div class="subtitle">$($env:COMPUTERNAME) &nbsp;&middot;&nbsp; Generated $generatedAt &nbsp;&middot;&nbsp; Collected in $($elapsed.TotalSeconds.ToString('N1'))s</div>
     </div>
   </div>
 
   <div id="search-wrap">
-    <input id="search" type="search" placeholder="Filter tables by keyword…" autocomplete="off"/>
+    <input id="search" type="search" placeholder="Filter tables by keyword..." autocomplete="off"/>
   </div>
 
   <!-- ── STAT CARDS ── -->
@@ -1231,31 +1231,31 @@ $($navHtml -join "`n")
   <!-- ══════════════════════ SECTIONS ══════════════════════ -->
 
   <div class="section" id="sec-os">
-    <div class="section-header"><span class="section-icon">🖥️</span><h2>Operating System</h2></div>
+    <div class="section-header"><span class="section-icon">&#x1F5A5;&#xFE0F;</span><h2>Operating System</h2></div>
     <div class="section-divider"></div>
     $(Build-KVTable -Data $osData -Id 'tbl-os')
   </div>
 
   <div class="section" id="sec-hw">
-    <div class="section-header"><span class="section-icon">🔧</span><h2>Computer System</h2></div>
+    <div class="section-header"><span class="section-icon">&#x1F527;</span><h2>Computer System</h2></div>
     <div class="section-divider"></div>
     $(Build-KVTable -Data $csData -Id 'tbl-cs')
   </div>
 
   <div class="section" id="sec-cpu">
-    <div class="section-header"><span class="section-icon">⚡</span><h2>Processor(s)</h2><span class="section-badge">$($cpus.Count) CPU(s)</span></div>
+    <div class="section-header"><span class="section-icon">&#x26A1;</span><h2>Processor(s)</h2><span class="section-badge">$($cpus.Count) CPU(s)</span></div>
     <div class="section-divider"></div>
     $(Build-Table -Id 'tbl-cpu' -Headers $cpuHeaders -Rows $cpuRows)
   </div>
 
   <div class="section" id="sec-ram">
-    <div class="section-header"><span class="section-icon">💾</span><h2>Memory</h2><span class="section-badge">$($ramModules.Count) module(s)</span></div>
+    <div class="section-header"><span class="section-icon">&#x1F4BE;</span><h2>Memory</h2><span class="section-badge">$($ramModules.Count) module(s)</span></div>
     <div class="section-divider"></div>
     $(Build-Table -Id 'tbl-ram' -Headers $ramHeaders -Rows $ramRows)
   </div>
 
   <div class="section" id="sec-disk">
-    <div class="section-header"><span class="section-icon">💿</span><h2>Storage</h2></div>
+    <div class="section-header"><span class="section-icon">&#x1F4BF;</span><h2>Storage</h2></div>
     <div class="section-divider"></div>
     <div class="subsection">
       <div class="subsection-title">Physical Disks ($($physDisks.Count))</div>
@@ -1272,7 +1272,7 @@ $($navHtml -join "`n")
   </div>
 
   <div class="section" id="sec-gpu">
-    <div class="section-header"><span class="section-icon">🖵</span><h2>Display / GPU</h2></div>
+    <div class="section-header"><span class="section-icon">&#x1F5B5;</span><h2>Display / GPU</h2></div>
     <div class="section-divider"></div>
     <div class="subsection">
       <div class="subsection-title">Video Controllers</div>
@@ -1289,7 +1289,7 @@ $($navHtml -join "`n")
   </div>
 
   <div class="section" id="sec-net">
-    <div class="section-header"><span class="section-icon">🌐</span><h2>Network</h2></div>
+    <div class="section-header"><span class="section-icon">&#x1F310;</span><h2>Network</h2></div>
     <div class="section-divider"></div>
     <div class="subsection">
       <div class="subsection-title">Adapters (IP Enabled)</div>
@@ -1314,25 +1314,25 @@ $($navHtml -join "`n")
   </div>
 
   <div class="section" id="sec-procs">
-    <div class="section-header"><span class="section-icon">⚙️</span><h2>Running Processes</h2><span class="section-badge">$($processes.Count) processes</span></div>
+    <div class="section-header"><span class="section-icon">&#x2699;&#xFE0F;</span><h2>Running Processes</h2><span class="section-badge">$($processes.Count) processes</span></div>
     <div class="section-divider"></div>
     $(Build-Table -Id 'tbl-proc' -Headers $procHeaders -Rows $procRows)
   </div>
 
   <div class="section" id="sec-services">
-    <div class="section-header"><span class="section-icon">🔌</span><h2>Services</h2><span class="section-badge">$($services.Count) total</span></div>
+    <div class="section-header"><span class="section-icon">&#x1F50C;</span><h2>Services</h2><span class="section-badge">$($services.Count) total</span></div>
     <div class="section-divider"></div>
     $(Build-Table -Id 'tbl-svc' -Headers $svcHeaders -Rows $svcRows)
   </div>
 
   <div class="section" id="sec-drivers">
-    <div class="section-header"><span class="section-icon">📦</span><h2>Drivers</h2><span class="section-badge">$($drivers.Count) drivers</span></div>
+    <div class="section-header"><span class="section-icon">&#x1F4E6;</span><h2>Drivers</h2><span class="section-badge">$($drivers.Count) drivers</span></div>
     <div class="section-divider"></div>
     $(Build-Table -Id 'tbl-drv' -Headers $drvHeaders -Rows $drvRows)
   </div>
 
   <div class="section" id="sec-apps">
-    <div class="section-header"><span class="section-icon">📋</span><h2>Installed Software</h2></div>
+    <div class="section-header"><span class="section-icon">&#x1F4CB;</span><h2>Installed Software</h2></div>
     <div class="section-divider"></div>
 <div class='subsection'>
       <div class='subsection-title'>Win32 Applications — Registry ($($appRows.Count) entries)</div>
@@ -1349,7 +1349,7 @@ $($navHtml -join "`n")
   </div>
 
   <div class="section" id="sec-security">
-    <div class="section-header"><span class="section-icon">🔒</span><h2>Security</h2></div>
+    <div class="section-header"><span class="section-icon">&#x1F512;</span><h2>Security</h2></div>
     <div class="section-divider"></div>
     <div class="subsection">
       <div class="subsection-title">TPM</div>
@@ -1370,19 +1370,19 @@ $(if ($batData.Count -gt 0) {
       $(Build-Table -Id 'tbl-dev' -Headers $devHeaders -Rows $devRows)
     </div>
     <div class="subsection">
-      <div class="subsection-title">⚠ Problem Devices ($($probRows.Count))</div>
-      $(Build-Table -Id 'tbl-prob' -Headers $devHeaders -Rows $probRows -EmptyMsg '✅ No problem devices found.')
+      <div class="subsection-title">&#x26A0; Problem Devices ($($probRows.Count))</div>
+      $(Build-Table -Id 'tbl-prob' -Headers $devHeaders -Rows $probRows -EmptyMsg '&#x2705; No problem devices found.')
     </div>
   </div>
 
   <div class="section" id="sec-sched">
-    <div class="section-header"><span class="section-icon">📅</span><h2>Scheduled Tasks</h2><span class="section-badge">$($tasks.Count) active</span></div>
+    <div class="section-header"><span class="section-icon">&#x1F4C5;</span><h2>Scheduled Tasks</h2><span class="section-badge">$($tasks.Count) active</span></div>
     <div class="section-divider"></div>
     $(Build-Table -Id 'tbl-task' -Headers $taskHeaders -Rows $taskRows)
   </div>
 
   <div class="section" id="sec-users">
-    <div class="section-header"><span class="section-icon">👤</span><h2>Users &amp; Groups</h2></div>
+    <div class="section-header"><span class="section-icon">&#x1F464;</span><h2>Users &amp; Groups</h2></div>
     <div class="section-divider"></div>
     <div class="subsection">
       <div class="subsection-title">Local Users ($($localUsers.Count))</div>
@@ -1395,13 +1395,13 @@ $(if ($batData.Count -gt 0) {
   </div>
 
   <div class="section" id="sec-events">
-    <div class="section-header"><span class="section-icon">📊</span><h2>Recent Errors (Last 7 Days)</h2><span class="section-badge">$($recentErrors.Count) events</span></div>
+    <div class="section-header"><span class="section-icon">&#x1F4CA;</span><h2>Recent Errors (Last 7 Days)</h2><span class="section-badge">$($recentErrors.Count) events</span></div>
     <div class="section-divider"></div>
     $(Build-Table -Id 'tbl-evt' -Headers $evtHeaders -Rows $evtRows -EmptyMsg 'No errors in System or Application logs in the past 7 days.')
   </div>
 
   <div class="section" id="sec-env">
-    <div class="section-header"><span class="section-icon">📝</span><h2>Environment Variables</h2><span class="section-badge">$($envRows.Count) variables</span></div>
+    <div class="section-header"><span class="section-icon">&#x1F4DD;</span><h2>Environment Variables</h2><span class="section-badge">$($envRows.Count) variables</span></div>
     <div class="section-divider"></div>
     $(Build-Table -Id 'tbl-env' -Headers $envHeaders -Rows $envRows)
   </div>
@@ -1469,6 +1469,6 @@ sections.forEach(s => observer.observe(s));
 # ─────────────────────────────────────────────────────────────────────────────
 
 if (-not (Test-Path $OutputPath)) { New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null }
-[System.IO.File]::WriteAllText($ReportFile, $html, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($ReportFile, $html, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Report written: $ReportFile" -ForegroundColor Green
 Start-Process $ReportFile
