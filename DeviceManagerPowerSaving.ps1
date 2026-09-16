@@ -34,17 +34,19 @@ $possibleValues = @(
 $regPaths = Get-ChildItem 'HKLM:\SYSTEM\ControlSet001\Enum\USB' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*Device Parameters' } 
 
 foreach ($regPath in $regPaths) {
-    $props = Get-ItemProperty $regPath.PSPath | Get-Member -MemberType NoteProperty
-    foreach ($value in $possibleValues) {
-        if (@($props.Name) -contains $value.Name) {
-            if ($value.Name -eq 'IdleUsbSelectiveSuspendPolicy') {
-                Remove-ItemProperty -Path $regPath.PSPath -Name $value.Name -Force 
-            }
-            else {
-                New-ItemProperty -Path $regPath.PSPath -Name $value.Name -Value $value.Value -PropertyType $value.Type -Force
+    $props = Get-ItemProperty $regPath.PSPath | Get-Member -MemberType NoteProperty -ErrorAction SilentlyContinue
+    if ($props) {
+        foreach ($value in $possibleValues) {
+            if (@($props.Name) -contains $value.Name) {
+                if ($value.Name -eq 'IdleUsbSelectiveSuspendPolicy') {
+                    Remove-ItemProperty -Path $regPath.PSPath -Name $value.Name -Force | out-null
+                }
+                else {
+                    New-ItemProperty -Path $regPath.PSPath -Name $value.Name -Value $value.Value -PropertyType $value.Type -Force | out-null
+                }
             }
         }
     }
     #enable device manager checkbox for all
-    New-ItemProperty -Path $regPath.PSPath -Name 'UserSetDeviceIdleEnabled' -Value 0 -PropertyType 'Dword' -Force
+    New-ItemProperty -Path $regPath.PSPath -Name 'UserSetDeviceIdleEnabled' -Value 1 -PropertyType 'Dword' -Force | out-null
 }
