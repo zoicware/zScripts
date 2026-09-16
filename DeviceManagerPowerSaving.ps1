@@ -20,6 +20,8 @@ foreach ($line in $devices) {
 
 #powercfg -devicequery wake_programmable
 
+#=================================== for usb devices =========================================================
+
 $possibleValues = @(
     [pscustomobject]@{Name = 'AllowIdleIrpInD3'; Value = 0; Type = 'DWord' }
     [pscustomobject]@{Name = 'SelectiveSuspendEnabled'; Value = 0; Type = 'Binary' }
@@ -39,14 +41,35 @@ foreach ($regPath in $regPaths) {
         foreach ($value in $possibleValues) {
             if (@($props.Name) -contains $value.Name) {
                 if ($value.Name -eq 'IdleUsbSelectiveSuspendPolicy') {
-                    Remove-ItemProperty -Path $regPath.PSPath -Name $value.Name -Force | out-null
+                    Remove-ItemProperty -Path $regPath.PSPath -Name $value.Name -Force | Out-Null
                 }
                 else {
-                    New-ItemProperty -Path $regPath.PSPath -Name $value.Name -Value $value.Value -PropertyType $value.Type -Force | out-null
+                    New-ItemProperty -Path $regPath.PSPath -Name $value.Name -Value $value.Value -PropertyType $value.Type -Force | Out-Null
                 }
             }
         }
     }
     #enable device manager checkbox for all
-    New-ItemProperty -Path $regPath.PSPath -Name 'UserSetDeviceIdleEnabled' -Value 1 -PropertyType 'Dword' -Force | out-null
+    New-ItemProperty -Path $regPath.PSPath -Name 'UserSetDeviceIdleEnabled' -Value 1 -PropertyType 'Dword' -Force | Out-Null
+}
+
+
+#=================================== for storage devices =========================================================
+
+$regPaths = Get-ChildItem 'HKLM:\SYSTEM\ControlSet001\Enum' -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*StorPort' }
+
+$possibleValues = @(
+    [PSCustomObject]@{ Name = 'EnableIdlePowerManagement'; Value = 0; Type = 'Dword' }
+    [PSCustomObject]@{ Name = 'DisableRuntimePowerManagement'; Value = 1; Type = 'Dword' }
+    [PSCustomObject]@{ Name = 'DisableIdlePowerManagement'; Value = 1; Type = 'Dword' }
+)
+foreach ($regPath in $regPaths) {
+    $props = Get-ItemProperty $regPath.PSPath | Get-Member -MemberType NoteProperty -ErrorAction SilentlyContinue
+    if ($props) {
+        foreach ($value in $possibleValues) {
+            if (@($props.Name) -contains $value.Name) {
+                New-ItemProperty -Path $regPath.PSPath -Name $value.Name -Value $value.Value -PropertyType $value.Type -Force | Out-Null
+            }
+        }
+    }
 }
